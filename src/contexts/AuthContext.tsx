@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import type { AuthResponse, LoginDto, RegisterDto, User } from "../types";
+import type { LoginDto, RegisterDto, User } from "../types";
 import api from "../services/api";
 
-interface AuthContextType{
+interface AuthContextType {
     user: User | null;
     isLoading: boolean;
     login: (credentials: LoginDto) => Promise<void>;
@@ -20,26 +20,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         const token = localStorage.getItem('token');
         const storedUser = localStorage.getItem('user');
+        console.log('🔍 Verificando localStorage:', { token: !!token, user: !!storedUser });
+
         if (token && storedUser) {
-            setUser(JSON.parse(storedUser));
+            try {
+                setUser(JSON.parse(storedUser));
+                console.log('✅ Usuario cargado desde localStorage');
+            } catch (error) {
+                console.error('Error parsing user:', error);
+                localStorage.removeItem('user');
+            }
         }
         setIsLoading(false);
     }, []);
 
     const login = async (credentials: LoginDto) => {
-        const response = await api.post<AuthResponse>('/auth/login', credentials);
-        const { token, user } = response.data;
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        setUser(user);
+        console.log('🔐 Intentando login con:', credentials.email);
+        try {
+            const response = await api.post('/auth/login', credentials);
+            console.log('📦 Respuesta del servidor:', response.data);
+
+            // 👇 IMPORTANTE: Usamos access_token como viene de tu backend
+            const token = response.data.access_token;  // ← CAMBIADO: access_token
+            const user = response.data.user;
+
+            console.log('🔑 Token obtenido:', token ? 'Sí' : 'No');
+            console.log('👤 Usuario obtenido:', user?.name);
+
+            if (token && user) {
+                // Guardar en localStorage
+                localStorage.setItem('token', token);
+                localStorage.setItem('user', JSON.stringify(user));
+
+                console.log('💾 Token guardado:', !!localStorage.getItem('token'));
+                console.log('💾 User guardado:', !!localStorage.getItem('user'));
+
+                setUser(user);
+                console.log('✅ Login exitoso');
+            } else {
+                console.error('❌ Respuesta sin token o usuario');
+                throw new Error('Respuesta inválida del servidor');
+            }
+        } catch (error) {
+            console.error('❌ Error en login:', error);
+            throw error;
+        }
     };
-    
+
     const register = async (userData: RegisterDto) => {
-        const response = await api.post('/auth/register', userData);
-        return response.data;
+        console.log('📝 Registrando usuario:', userData.email);
+        try {
+            const response = await api.post('/auth/register', userData);
+            console.log('✅ Registro exitoso');
+            return response.data;
+        } catch (error) {
+            console.error('❌ Error en registro:', error);
+            throw error;
+        }
     };
 
     const logout = () => {
+        console.log('🚪 Cerrando sesión');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setUser(null);
@@ -60,8 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useAuth = () => {
-        const context = useContext(AuthContext);
-        if (!context) throw new Error('useAuth must be used within an AuthProvider');
-        return context;
+    const context = useContext(AuthContext);
+    if (!context) throw new Error('useAuth must be used within an AuthProvider');
+    return context;
 };
-        
