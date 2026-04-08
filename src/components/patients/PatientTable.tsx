@@ -4,8 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTableShadcn } from '@/components/shared/DataTableShadcn';
 import { Patient } from '@/types/patient';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 
 interface PatientTableProps {
     data: Patient[];
@@ -13,6 +11,7 @@ interface PatientTableProps {
     onEdit: (patient: Patient) => void;
     onDelete: (patient: Patient) => void;
     onViewHistory: (patient: Patient) => void;
+    onRestore?: (patient: Patient) => void;
     pagination?: {
         currentPage: number;
         totalPages: number;
@@ -68,11 +67,27 @@ export function PatientTable({
             cell: ({ row }) => {
                 const date = row.getValue('birthDate') as string;
                 if (!date) return '-';
-                try {
-                    return format(new Date(date), 'dd/MM/yyyy', { locale: es });
-                } catch {
-                    return '-';
-                }
+                const isoDate = date.split('T')[0]; 
+                const [year, month, day] = isoDate.split('-');
+                return <div className="text-gray-600">{`${day}/${month}/${year}`}</div>;
+            },
+        },
+     {
+            id: 'deletedStatus',  // ← Cambiar a id en lugar de accessorKey
+            header: 'Eliminado',
+            size: 100,
+            cell: ({ row }) => {
+                // ✅ Acceder directamente a row.original.deletedAt
+                const isDeleted = !!row.original.deletedAt;
+                return isDeleted ? (
+                    <Badge variant="destructive" className="bg-red-100 text-red-700">
+                        Eliminado
+                    </Badge>
+                ) : (
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        Activo
+                    </Badge>
+                );
             },
         },
         {

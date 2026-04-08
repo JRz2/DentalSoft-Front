@@ -33,7 +33,14 @@ export const patientService = {
 
     // Eliminar paciente (soft delete)
     delete: async (id: number): Promise<void> => {
-        await api.delete(`/patient/${id}`);
+        try {
+            const response = await api.delete(`/patient/${id}`);
+            console.log('✅ Paciente eliminado:', response.data);
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ Error al eliminar:', error.response?.data);
+            throw error;
+        }
     },
 
 };

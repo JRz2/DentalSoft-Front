@@ -9,6 +9,14 @@ import { PatientForm } from './PatientForm';
 import { CreatePatientInput } from '@/lib/validations/patient.schema';
 import { Patient } from '@/types/patient';
 
+const formatDateForInput = (dateFromBackend: string | undefined): string => {
+  if (!dateFromBackend) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateFromBackend)) return dateFromBackend;
+  const date = new Date(dateFromBackend);
+  if (isNaN(date.getTime())) return '';
+  return date.toISOString().split('T')[0];
+};
+
 interface PatientModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -31,7 +39,7 @@ export function PatientModal({
             fullName: patient.fullName,
             email: patient.email,
             phoneNumber: patient.phoneNumber,
-            birthDate: patient.birthDate,
+            birthDate: formatDateForInput(patient.birthDate),
             address: patient.address,
             dentalHistory: patient.dentalHistory,
             habits: patient.habits,

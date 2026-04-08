@@ -9,6 +9,7 @@ export interface Patient {
     habits?: string;
     medicalConditions?: string;
     IsActive?: boolean;
+    deletedAt?: string | null;
     creatdAt?: string;
     updatedAt?: string;
 }
