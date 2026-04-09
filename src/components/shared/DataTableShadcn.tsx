@@ -134,7 +134,7 @@ export function DataTableShadcn<TData, TValue>({
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={columns.length} className="h-24 text-center text-gray-500">
-                                    No hay pacientes registrados
+                                    Aun no hay registros
                                 </TableCell>
                             </TableRow>
                         )}

@@ -7,10 +7,11 @@ export interface Patient {
     address?: string;
     dentalHistory?: string;
     habits?: string;
+    medicalRecordNum?: string;
     medicalConditions?: string;
     IsActive?: boolean;
     deletedAt?: string | null;
-    creatdAt?: string;
+    createdAt?: string;
     updatedAt?: string;
 }
 

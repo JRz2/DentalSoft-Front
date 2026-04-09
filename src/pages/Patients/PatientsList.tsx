@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,9 @@ import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient } fro
 import { Patient, CreatePatientDto } from '@/types/patient';
 
 export function PatientsList() {
+
+    const navigate = useNavigate();
+    
     //estados
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -56,9 +60,7 @@ export function PatientsList() {
     };
 
     const handleViewHistory = (patient: Patient) => {
-        // Navegar a la página de historia clínica
-        console.log('Ver historial de:', patient);
-        // TODO: Implementar navegación
+        navigate(`/clinical-history/${patient.id}`);
     };
 
     const handleSubmitForm = async (data: CreatePatientDto) => {
