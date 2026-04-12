@@ -6,21 +6,33 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { PatientsList } from './pages/Patients/PatientsList';
 import { ClinicalHistoryPage } from './pages/ClinicalHistory/ClinicalHistoryPage';
+import { TreatmentSessionsPage } from './pages/ClinicalHistory/TreatmentSessionsPage';
+import { useScrollToTop } from './hooks/useScrollToTop';
+
+function AppRoutes() {
+  useScrollToTop();
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/patients" element={<PatientsList />} />
+        <Route path="/clinical-history/:id" element={<ClinicalHistoryPage />} />
+        <Route path="/treatment-sessions/:treatmentId/patient/:patientId" element={<TreatmentSessionsPage />} />
+      </Route>
+    </Routes>
+  );
+}
 function App() {
+  if (typeof window !== 'undefined') {
+    window.history.scrollRestoration = 'manual';
+  }
+
   return (
     <BrowserRouter>
       <AuthProvider>
-        <div className="bg-gray-100 min-h-screen">
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/patients" element={<PatientsList />} />
-              <Route path="/clinical-history/:id" element={<ClinicalHistoryPage />} />
-            </Route>
-          </Routes>
-        </div>
+        <AppRoutes />
       </AuthProvider>
     </BrowserRouter>
   );

@@ -1,16 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-    Plus,
-    Edit,
-    Stethoscope,
-    ClipboardList,
-    Phone,
-    Mail,
-    Calendar as CalendarIcon,
-    MapPin,
-    IdCard,
-    Search
+    Plus, Edit, Stethoscope, ClipboardList, Phone, Mail, Calendar as CalendarIcon,
+    MapPin, IdCard, Search, FileText
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,19 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from '@/components/ui/select';
 import { usePatient } from '@/hooks/usePatients';
 import { useClinicalHistory, useTreatments } from '@/hooks/useClinicalHistory';
 import { TreatmentForm } from '@/components/clinical/TreatmentForm';
-import { TreatmentDetail } from '@/components/clinical/TreatmentDetail';
 import { ClinicalInfoForm } from '@/components/clinical/ClinicalInfoForm';
-import { ConsultationHistory } from '@/components/clinical/ConsultationHistory';
 import { TreatmentTable } from '@/components/clinical/TreatmentTable';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -67,7 +51,6 @@ export function ClinicalHistoryPage() {
     // Estados
     const [showTreatmentForm, setShowTreatmentForm] = useState(false);
     const [showClinicalInfoForm, setShowClinicalInfoForm] = useState(false);
-    const [selectedTreatment, setSelectedTreatment] = useState<any>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [typeFilter, setTypeFilter] = useState('all');
@@ -140,6 +123,19 @@ export function ClinicalHistoryPage() {
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6">
+
+                {/* Título Historia Clínica */}
+                <div className="mb-6">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 bg-primary-100 rounded-xl">
+                            <FileText className="h-6 w-6 text-primary-600" />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900">Historia Clínica</h1>
+                            <p className="text-sm text-gray-500">Registro completo de tratamientos y consultas del paciente</p>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Header con foto de paciente */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -240,15 +236,18 @@ export function ClinicalHistoryPage() {
                 {/* Sección de Tratamientos */}
                 <Card>
                     <CardHeader>
-                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <ClipboardList className="h-5 w-5 text-primary-600" />
                             <div>
                                 <CardTitle>Tratamientos</CardTitle>
                                 <p className="text-sm text-gray-500 mt-1">Gestión de tratamientos odontológicos</p>
                             </div>
-                            <Button onClick={() => setShowTreatmentForm(true)} className="gap-2">
-                                <Plus className="h-4 w-4" />
-                                Nuevo Tratamiento
-                            </Button>
+                            <div className="ml-auto">
+                                <Button onClick={() => setShowTreatmentForm(true)} className="gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    Nuevo Tratamiento
+                                </Button>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -293,7 +292,7 @@ export function ClinicalHistoryPage() {
                         <TreatmentTable
                             data={paginatedTreatments}
                             isLoading={treatmentsLoading}
-                            onViewDetail={setSelectedTreatment}
+                            patientId={patientId}
                             onStart={(treatment) => {
                                 console.log('Iniciar tratamiento:', treatment);
                             }}
@@ -314,22 +313,6 @@ export function ClinicalHistoryPage() {
                                 onPageChange: setCurrentPage,
                             }}
                         />
-                    </CardContent>
-                </Card>
-
-                {/* Historial de Consultas */}
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center gap-3">
-                            <ClipboardList className="h-5 w-5 text-primary-600" />
-                            <div>
-                                <CardTitle>Historial de Consultas</CardTitle>
-                                <p className="text-sm text-gray-500 mt-1">Registro de citas y consultas médicas</p>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <ConsultationHistory patientId={patientId} />
                     </CardContent>
                 </Card>
 
@@ -355,16 +338,6 @@ export function ClinicalHistoryPage() {
                             setShowClinicalInfoForm(false);
                             refetchHistory();
                         }}
-                    />
-                )}
-
-                {selectedTreatment && (
-                    <TreatmentDetail
-                        open={!!selectedTreatment}
-                        onOpenChange={() => setSelectedTreatment(null)}
-                        treatment={selectedTreatment}
-                        patientId={patientId}
-                        onSessionAdded={refetchTreatments}
                     />
                 )}
             </div>

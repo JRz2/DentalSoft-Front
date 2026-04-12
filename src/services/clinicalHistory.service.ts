@@ -44,15 +44,11 @@ export const clinicalHistoryService = {
     },
 
     // Crear sesión de tratamiento
-    createSession: async (data: CreateTreatmentSessionDto): Promise<TreatmentSession> => {
-        console.log('📤 Enviando sesión:', JSON.stringify(data, null, 2));        
+    createSession: async (data: CreateTreatmentSessionDto): Promise<TreatmentSession> => {     
         try {
             const response = await api.post('/treatment-session', data);
-            console.log('✅ Respuesta:', response.data);
             return response.data;
         } catch (error: any) {
-            console.error('❌ Error al crear sesión:', error.response?.data);
-            console.error('status:' + error.response?.status);
             throw error;
         }
     },
@@ -72,5 +68,16 @@ export const clinicalHistoryService = {
     // Eliminar sesión
     deleteSession: async (id: number): Promise<void> => {
         await api.delete(`/treatment-session/${id}`);
+    },
+
+    // Obtener sesiones por tratamiento
+    getSessionsByTreatment: async (treatmentId: number): Promise<TreatmentSession[]> => {
+        const response = await api.get(`/treatment-session/treatment/${treatmentId}`);
+        return response.data;
+    },
+
+    getTreatmentById: async (id: number): Promise<Treatment> => {
+        const response = await api.get(`/treatment/${id}`);
+        return response.data;
     },
 };

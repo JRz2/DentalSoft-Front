@@ -69,10 +69,27 @@ export const useCreateSession = () => {
         mutationFn: (data: any) => clinicalHistoryService.createSession(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: clinicalHistoryKeys.all });
-            toast.success('Sesión registrada');
+            toast.success('Sesión registrada exitosamente');
         },
         onError: () => {
             toast.error('Error al registrar sesión');
+        },
+    });
+};
+
+// Actualizar sesión
+export const useUpdateSession = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id, data }: { id: number; data: any }) =>
+            clinicalHistoryService.updateSession(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: clinicalHistoryKeys.all });
+            toast.success('Sesión actualizada exitosamente');
+        },
+        onError: () => {
+            toast.error('Error al actualizar la sesión');
         },
     });
 };

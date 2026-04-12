@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -12,7 +13,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useCreateSession } from '@/hooks/useClinicalHistory';
+import { useCreateSession, useUpdateSession } from '@/hooks/useClinicalHistory';
+import { TreatmentSession } from '@/types/clinicalHistory';
+import { toast } from 'sonner';
 
 const sessionSchema = z.object({
     sessionNumber: z.number().min(1, 'Número de sesión requerido'),
@@ -28,61 +31,107 @@ interface SessionFormProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     treatmentId: number;
-    nextSessionNumber: number;
+    nextSessionNumber?: number;
+    sessionToEdit?: TreatmentSession | null;
     onSuccess: () => void;
 }
 
-export function SessionForm({ 
-    open, 
-    onOpenChange, 
-    treatmentId, 
-    nextSessionNumber, 
-    onSuccess 
+export function SessionForm({
+    open,
+    onOpenChange,
+    treatmentId,
+    nextSessionNumber = 1,
+    sessionToEdit,
+    onSuccess
 }: SessionFormProps) {
     const createSession = useCreateSession();
+    const updateSession = useUpdateSession();
+
+    const isEditing = !!sessionToEdit;
 
     const {
         register,
         handleSubmit,
+        setValue,
         formState: { errors, isSubmitting },
         reset,
     } = useForm<SessionFormData>({
         resolver: zodResolver(sessionSchema),
         defaultValues: {
-            sessionNumber: nextSessionNumber,
-            description: '',
-            notes: '',
-            procedures: '',
-            sessionDate: new Date().toISOString().split('T')[0],
+            sessionNumber: isEditing ? sessionToEdit?.sessionNumber || 1 : nextSessionNumber,
+            description: isEditing ? sessionToEdit?.description || '' : '',
+            notes: isEditing ? sessionToEdit?.notes || '' : '',
+            procedures: isEditing ? (() => {
+                const proc = sessionToEdit?.procedures;
+                if (!proc) return '';
+                if (typeof proc === 'string') return proc;
+                if (proc.text) return proc.text;
+                return '';
+            })() : '',
+            sessionDate: isEditing && sessionToEdit?.sessionDate
+                ? new Date(sessionToEdit.sessionDate).toISOString().split('T')[0]
+                : new Date().toISOString().split('T')[0],
         },
     });
 
+    useEffect(() => {
+        if (isEditing && sessionToEdit) {
+            setValue('sessionNumber', sessionToEdit.sessionNumber);
+            setValue('description', sessionToEdit.description);
+            setValue('notes', sessionToEdit.notes || '');
+            const proc = sessionToEdit.procedures;
+            if (proc) {
+                if (typeof proc === 'string') {
+                    setValue('procedures', proc);
+                } else if (proc.text) {
+                    setValue('procedures', proc.text);
+                }
+            }
+            if (sessionToEdit.sessionDate) {
+                setValue('sessionDate', new Date(sessionToEdit.sessionDate).toISOString().split('T')[0]);
+            }
+        }
+    }, [sessionToEdit, isEditing, setValue]);
+
+    useEffect(() => {
+        if (open && !isEditing) {
+            reset({
+                sessionNumber: nextSessionNumber,
+                description: '',
+                notes: '',
+                procedures: '',
+                sessionDate: new Date().toISOString().split('T')[0],
+            });
+        }
+    }, [open, isEditing, nextSessionNumber, reset]);
+
     const onSubmit = async (data: SessionFormData) => {
         try {
-            const sessionData = {
-                treatmentId: treatmentId,
-                sessionNumber: data.sessionNumber,
-                description: data.description,
-                notes: data.notes || '',
-                procedures: data.procedures ? { text: data.procedures } : undefined,
-                sessionDate: new Date(data.sessionDate).toISOString(),
-            };
-            
-            if (data.notes && data.notes.trim() !== '') {
-                sessionData.notes = data.notes;
-            }
-                
-            if (data.procedures && data.procedures.trim() !== '') {
-                sessionData.procedures = { text: data.procedures };
+            if (isEditing && sessionToEdit) {
+                const updateData = {
+                    description: data.description,
+                    notes: data.notes || '',
+                    procedures: data.procedures ? { text: data.procedures } : undefined,
+                    sessionDate: new Date(data.sessionDate).toISOString(),
+                };
+                await updateSession.mutateAsync({ id: sessionToEdit.id, data: updateData });
+            } else {
+                const sessionData = {
+                    treatmentId: treatmentId,
+                    sessionNumber: data.sessionNumber,
+                    description: data.description,
+                    notes: data.notes || '',
+                    procedures: data.procedures ? { text: data.procedures } : undefined,
+                    sessionDate: new Date(data.sessionDate).toISOString(),
+                };
+                await createSession.mutateAsync(sessionData);
             }
 
-            console.log('📦 Creando sesión:', sessionData);
-            await createSession.mutateAsync(sessionData);
-            
             reset();
             onSuccess();
         } catch (error) {
-            console.error('Error al crear sesión:', error);
+            console.error('Error al guardar sesión:', error);
+            toast.error('Error al guardar la sesión');
         }
     };
 
@@ -90,12 +139,16 @@ export function SessionForm({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>Registrar Sesión #{nextSessionNumber}</DialogTitle>
+                    <DialogTitle>
+                        {isEditing ? `Editar Sesión #${sessionToEdit?.sessionNumber}` : `Registrar Sesión #${nextSessionNumber}`}
+                    </DialogTitle>
                     <DialogDescription>
-                        Registre los detalles de la sesión realizada.
+                        {isEditing
+                            ? 'Modifique los detalles de la sesión realizada.'
+                            : 'Registre los detalles de la sesión realizada.'}
                     </DialogDescription>
                 </DialogHeader>
-                
+
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="sessionDate">Fecha de la sesión *</Label>
@@ -114,7 +167,7 @@ export function SessionForm({
                         <Input
                             id="sessionNumber"
                             type="number"
-                            {...register('sessionNumber', { valueAsNumber: true })}
+                            value={isEditing ? sessionToEdit?.sessionNumber : nextSessionNumber}
                             disabled
                             className="bg-gray-100"
                         />
@@ -125,7 +178,7 @@ export function SessionForm({
                         <Textarea
                             id="description"
                             {...register('description')}
-                            placeholder="Describa los procedimientos realizados en esta sesión..."
+                            placeholder="Describa los procedimientos realizados..."
                             rows={3}
                         />
                         {errors.description && (
@@ -138,7 +191,7 @@ export function SessionForm({
                         <Textarea
                             id="procedures"
                             {...register('procedures')}
-                            placeholder="Ej: Apertura coronaria, limpieza de conductos, medicación..."
+                            placeholder="Ej: Anestesia local, Apertura coronaria, Limpieza de conductos..."
                             rows={2}
                         />
                     </div>
@@ -148,7 +201,7 @@ export function SessionForm({
                         <Textarea
                             id="notes"
                             {...register('notes')}
-                            placeholder="Observaciones, recomendaciones para la próxima sesión..."
+                            placeholder="Observaciones, recomendaciones..."
                             rows={2}
                         />
                     </div>
@@ -162,7 +215,7 @@ export function SessionForm({
                             Cancelar
                         </Button>
                         <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? 'Registrando...' : 'Registrar Sesión'}
+                            {isSubmitting ? 'Guardando...' : (isEditing ? 'Actualizar Sesión' : 'Registrar Sesión')}
                         </Button>
                     </div>
                 </form>
