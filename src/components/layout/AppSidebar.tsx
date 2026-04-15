@@ -7,7 +7,8 @@ import {
   Settings,
   LogOut,
   Activity,
-  Menu
+  Menu,
+  UserCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -16,6 +17,7 @@ import { Button } from '@/components/ui/button';
 const menuItems = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/patients', icon: Users, label: 'Pacientes' },
+  { path: '/profile', icon: UserCircle, label: 'Perfil' },
   { path: '/appointments', icon: Calendar, label: 'Citas' },
   { path: '/clinical-history', icon: FileText, label: 'Historia Clínica' },
   { path: '/settings', icon: Settings, label: 'Configuración' },
