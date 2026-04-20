@@ -1,8 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useClinicConfig } from '../hooks/useClinicConfig';
-import { Building2, Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
+import { Mail, Lock, LogIn, AlertCircle, Building2 } from 'lucide-react';
+
+const clinicConfig = {
+    commercialName: 'Clínica Dental',
+    businessName: 'Sistema de Gestión Odontológica',
+    footerText: 'Gracias por confiar en nosotros',
+    address: 'Calle Principal #123',
+    mobile: '+591 78945612',
+    email: 'info@clinica.com',
+    logoUrl: 'http://localhost:3000/assets/logo-default.png', 
+};
 
 export const Login = () => {
     const [email, setEmail] = useState('');
@@ -10,7 +19,6 @@ export const Login = () => {
     const [error, setError] = useState('');
     const { login } = useAuth();
     const navigate = useNavigate();
-    const { data: clinicConfig, isLoading: configLoading } = useClinicConfig();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -23,41 +31,40 @@ export const Login = () => {
         }
     };
 
-    if (configLoading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-primary-50 via-primary-100 to-primary-200 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-            </div>
-        );
-    }
+    const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+        e.currentTarget.style.display = 'none';
+        const fallback = document.getElementById('logo-fallback');
+        if (fallback) fallback.style.display = 'flex';
+    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-primary-50 via-primary-100 to-primary-200 flex items-center justify-center p-4">
             <div className="w-full max-w-md">
-                {/* Tarjeta principal */}
                 <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-                    {/* Header con gradiente */}
-                    <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-8 text-center">
-                        {clinicConfig?.logoUrl ? (
-                            <img
-                                src={clinicConfig.logoUrl}
-                                alt={clinicConfig.commercialName || 'Clínica Dental'}
-                                className="h-40 w-auto mx-auto mb-4 rounded-full shadow-md bg-white p-2 object-contain"
-                            />
-                        ) : (
-                            <div className="w-32 h- mx-auto mb-4 bg-white/20 rounded-2xl flex items-center justify-center">
-                                <Building2 className="h-16 w-16 text-white" />
-                            </div>
-                        )}
+                    <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-8 py-8 text-center">
+                        {/* Logo */}
+                        <img
+                            src={clinicConfig.logoUrl}
+                            alt={clinicConfig.commercialName}
+                            className="h-40 w-auto mx-auto mb-4 rounded-full shadow-md bg-white p-2 object-contain"
+                            onError={handleImageError}
+                        />
+                        {/* Fallback si no carga la imagen */}
+                        <div 
+                            id="logo-fallback"
+                            className="w-20 h-20 mx-auto mb-4 bg-black/20 rounded-2xl flex items-center justify-center"
+                            style={{ display: 'none' }}
+                        >
+                            <Building2 className="h-10 w-10 text-black" />
+                        </div>
                         <h1 className="text-2xl font-bold text-black">
-                            {clinicConfig?.commercialName || 'Clínica Dental'}
+                            {clinicConfig.commercialName}
                         </h1>
                         <p className="text-primary-100 mt-1 text-sm">
-                            {clinicConfig?.businessName || 'Sistema de Gestión Odontológica'}
+                            {clinicConfig.businessName}
                         </p>
                     </div>
 
-                    {/* Formulario */}
                     <div className="px-8 py-8">
                         <form onSubmit={handleSubmit} className="space-y-5">
                             {error && (
@@ -114,8 +121,7 @@ export const Login = () => {
                             </button>
                         </form>
 
-                        {/* Footer con información de la clínica */}
-                        {clinicConfig?.footerText && (
+                        {clinicConfig.footerText && (
                             <div className="mt-6 pt-4 border-t border-gray-100 text-center">
                                 <p className="text-xs text-gray-400">
                                     {clinicConfig.footerText}
@@ -125,17 +131,10 @@ export const Login = () => {
                     </div>
                 </div>
 
-                {/* Información de contacto */}
                 <div className="text-center mt-6 text-sm text-gray-500">
-                    {clinicConfig?.address && (
-                        <p className="mb-1">{clinicConfig.address}</p>
-                    )}
-                    {clinicConfig?.mobile && (
-                        <p className="mb-1">Tel: {clinicConfig.mobile}</p>
-                    )}
-                    {clinicConfig?.email && (
-                        <p className="mb-1">Email: {clinicConfig.email}</p>
-                    )}
+                    {clinicConfig.address && <p className="mb-1">{clinicConfig.address}</p>}
+                    {clinicConfig.mobile && <p className="mb-1">Tel: {clinicConfig.mobile}</p>}
+                    {clinicConfig.email && <p className="mb-1">Email: {clinicConfig.email}</p>}
                 </div>
             </div>
         </div>
