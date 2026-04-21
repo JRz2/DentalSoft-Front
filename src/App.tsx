@@ -9,6 +9,7 @@ import { ClinicalHistoryPage } from './pages/ClinicalHistory/ClinicalHistoryPage
 import { TreatmentSessionsPage } from './pages/ClinicalHistory/TreatmentSessionsPage';
 import { useScrollToTop } from './hooks/useScrollToTop';
 import { ProfilePage } from './pages/Profile/ProfilePage';
+import { UsersPage } from './pages/Users/UsersPage';
 
 function AppRoutes() {
   useScrollToTop();
@@ -22,6 +23,7 @@ function AppRoutes() {
         <Route path="/patients" element={<PatientsList />} />
         <Route path="/clinical-history/:id" element={<ClinicalHistoryPage />} />
         <Route path="/treatment-sessions/:treatmentId/patient/:patientId" element={<TreatmentSessionsPage />} />
+        <Route path="/users" element={<UsersPage />} />
       </Route>
     </Routes>
   );

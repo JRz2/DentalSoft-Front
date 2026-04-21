@@ -1,26 +1,29 @@
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Calendar, 
-  FileText, 
+import {
+  LayoutDashboard,
+  Users,
+  Calendar,
+  FileText,
   Settings,
   LogOut,
   Activity,
   Menu,
-  UserCircle
+  UserCircle,
+  Shield
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
-const menuItems = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/patients', icon: Users, label: 'Pacientes' },
-  { path: '/profile', icon: UserCircle, label: 'Perfil' },
-  { path: '/appointments', icon: Calendar, label: 'Citas' },
-  { path: '/clinical-history', icon: FileText, label: 'Historia Clínica' },
-  { path: '/settings', icon: Settings, label: 'Configuración' },
+// Menú base para todos los usuarios
+const baseMenuItems = [
+  { path: '/users', icon: Shield, label: 'Usuarios', roles: ['SUPER_ADMIN'] }, // ← Solo SUPER_ADMIN
+  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+  { path: '/patients', icon: Users, label: 'Pacientes', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+  { path: '/profile', icon: UserCircle, label: 'Perfil', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+  { path: '/appointments', icon: Calendar, label: 'Citas', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+  { path: '/clinical-history', icon: FileText, label: 'Historia Clínica', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+  { path: '/settings', icon: Settings, label: 'Configuración', roles: ['SUPER_ADMIN', 'ADMIN'] },
 ];
 
 interface AppSidebarProps {
@@ -30,7 +33,12 @@ interface AppSidebarProps {
 
 export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+
+  // Filtrar menús según el rol del usuario
+  const menuItems = baseMenuItems.filter(item =>
+    item.roles.includes(user?.role || '')
+  );
 
   return (
     <>
@@ -45,16 +53,16 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
             <Activity className="w-8 h-8 text-blue-400" />
             {isOpen && <span className="text-xl font-bold">DentalClinic</span>}
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={onToggle}
             className="text-white hover:bg-slate-700 hidden lg:flex"
           >
             <Menu className="w-5 h-5" />
           </Button>
         </div>
-        
+
         {/* Menú de navegación */}
         <nav className="mt-8">
           {menuItems.map((item) => {
@@ -66,8 +74,8 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                 to={item.path}
                 className={cn(
                   "flex items-center mx-2 mb-2 px-4 py-3 rounded-lg transition-all",
-                  isActive 
-                    ? "bg-blue-600 text-white" 
+                  isActive
+                    ? "bg-blue-600 text-white"
                     : "text-slate-300 hover:bg-slate-700"
                 )}
               >

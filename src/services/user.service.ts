@@ -1,4 +1,5 @@
 import api from './api';
+import { User, CreateUserDto, UpdateUserDto, Clinic } from '@/types/user';
 
 export interface UserProfile {
     id: number;
@@ -40,6 +41,36 @@ export const userService = {
 
     changePassword: async (data: ChangePasswordDto): Promise<{ message: string }> => {
         const response = await api.post('/users/change-password', data);
+        return response.data;
+    },
+
+    getUsers: async (params?: { role?: string; clinicId?: number }): Promise<User[]> => {
+        const response = await api.get('/users', { params });
+        return response.data;
+    },
+
+    getUserById: async (id: number): Promise<User> => {
+        const response = await api.get(`/users/${id}`);
+        return response.data;
+    },
+
+    createUser: async (data: CreateUserDto): Promise<User> => {
+        const response = await api.post('/users', data);
+        return response.data;
+    },
+
+    updateUser: async (id: number, data: UpdateUserDto): Promise<User> => {
+        const response = await api.patch(`/users/${id}`, data);
+        return response.data;
+    },
+
+    deleteUser: async (id: number): Promise<void> => {
+        const response = await api.delete(`/users/${id}`);
+        return response.data;
+    },
+    
+    getClinics: async (): Promise<Clinic[]> => {
+        const response = await api.get('/clinics');
         return response.data;
     },
 };
