@@ -17,8 +17,8 @@ import { Button } from '@/components/ui/button';
 
 // Menú base para todos los usuarios
 const baseMenuItems = [
-  { path: '/users', icon: Shield, label: 'Usuarios', roles: ['SUPER_ADMIN'] }, // ← Solo SUPER_ADMIN
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+  { path: '/users', icon: Shield, label: 'Usuarios', roles: ['SUPER_ADMIN'] }, // ← Solo SUPER_ADMIN
   { path: '/patients', icon: Users, label: 'Pacientes', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
   { path: '/profile', icon: UserCircle, label: 'Perfil', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
   { path: '/appointments', icon: Calendar, label: 'Citas', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },

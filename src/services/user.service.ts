@@ -70,7 +70,7 @@ export const userService = {
     },
     
     getClinics: async (): Promise<Clinic[]> => {
-        const response = await api.get('/clinics');
+        const response = await api.get('/clinic');
         return response.data;
     },
 };
