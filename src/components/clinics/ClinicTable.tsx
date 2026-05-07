@@ -1,5 +1,5 @@
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Trash2, Building2, Mail, Phone } from 'lucide-react';
+import { Pencil, Trash2, Building2, Phone, MapPin, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTableShadcn } from '@/components/shared/DataTableShadcn';
@@ -39,11 +39,14 @@ export function ClinicTable({
             ),
         },
         {
-            accessorKey: 'commercialName',
-            header: 'Nombre Comercial',
-            size: 180,
+            accessorKey: 'subdomain',
+            header: 'Subdominio',
+            size: 150,
             cell: ({ row }) => (
-                <div className="text-gray-600">{row.getValue('commercialName') || '-'}</div>
+                <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-gray-400" />
+                    <span className="text-gray-600">{row.getValue('subdomain')}</span>
+                </div>
             ),
         },
         {
@@ -63,15 +66,15 @@ export function ClinicTable({
             },
         },
         {
-            accessorKey: 'email',
-            header: 'Email',
-            size: 200,
+            accessorKey: 'address',
+            header: 'Dirección',
+            size: 250,
             cell: ({ row }) => {
-                const email = row.getValue('email') as string;
-                return email ? (
+                const address = row.getValue('address') as string;
+                return address ? (
                     <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-600">{email}</span>
+                        <MapPin className="h-4 w-4 text-gray-400" />
+                        <span className="text-gray-600">{address}</span>
                     </div>
                 ) : (
                     <span className="text-gray-400">-</span>

@@ -7,13 +7,14 @@ import { Label } from '@/components/ui/label';
 
 const clinicSchema = z.object({
     name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
-    commercialName: z.string().optional(),
-    nit: z.string().optional(),
-    address: z.string().optional(),
+    subdomain: z.string()
+        .min(3, 'El subdominio debe tener al menos 3 caracteres')
+        .regex(/^[a-z0-9]+$/, 'Solo letras minúsculas y números sin espacios'),
     phone: z.string().optional(),
     email: z.string().email('Email inválido').optional().or(z.literal('')),
-    subdomain: z.string().optional(),
+    address: z.string().optional(),
     logoUrl: z.string().optional(),
+    faviconUrl: z.string().optional(),
 });
 
 type ClinicFormData = z.infer<typeof clinicSchema>;
@@ -39,13 +40,12 @@ export function ClinicForm({
         resolver: zodResolver(clinicSchema),
         defaultValues: defaultValues || {
             name: '',
-            commercialName: '',
-            nit: '',
-            address: '',
+            subdomain: '',
             phone: '',
             email: '',
-            subdomain: '',
+            address: '',
             logoUrl: '',
+            faviconUrl: '',
         },
     });
 
@@ -66,21 +66,17 @@ export function ClinicForm({
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="commercialName">Nombre comercial</Label>
+                    <Label htmlFor="subdomain">Subdominio *</Label>
                     <Input
-                        id="commercialName"
-                        {...register('commercialName')}
-                        placeholder="Sonrisa Dental"
+                        id="subdomain"
+                        {...register('subdomain')}
+                        placeholder="ejemplo (clinica1, sonrisadental)"
+                        className={errors.subdomain ? 'border-red-500' : ''}
                     />
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="nit">NIT</Label>
-                    <Input
-                        id="nit"
-                        {...register('nit')}
-                        placeholder="900000000-1"
-                    />
+                    {errors.subdomain && (
+                        <p className="text-sm text-red-500">{errors.subdomain.message}</p>
+                    )}
+                    <p className="text-xs text-gray-500">Solo letras minúsculas y números, sin espacios</p>
                 </div>
 
                 <div className="space-y-2">
@@ -105,15 +101,6 @@ export function ClinicForm({
                     )}
                 </div>
 
-                <div className="space-y-2">
-                    <Label htmlFor="subdomain">Subdominio</Label>
-                    <Input
-                        id="subdomain"
-                        {...register('subdomain')}
-                        placeholder="sonrisadental"
-                    />
-                </div>
-
                 <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="address">Dirección</Label>
                     <Input
@@ -123,12 +110,21 @@ export function ClinicForm({
                     />
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
+                <div className="space-y-2">
                     <Label htmlFor="logoUrl">URL del logo</Label>
                     <Input
                         id="logoUrl"
                         {...register('logoUrl')}
                         placeholder="https://ejemplo.com/logo.png"
+                    />
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="faviconUrl">URL del favicon</Label>
+                    <Input
+                        id="faviconUrl"
+                        {...register('faviconUrl')}
+                        placeholder="https://ejemplo.com/favicon.ico"
                     />
                 </div>
             </div>

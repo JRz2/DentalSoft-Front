@@ -17,14 +17,14 @@ import { Button } from '@/components/ui/button';
 
 // Menú base para todos los usuarios
 const baseMenuItems = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
-  { path: '/users', icon: Shield, label: 'Usuarios', roles: ['SUPER_ADMIN'] },
   { path: '/clinics', icon: Activity, label: 'Clinicas', roles: ['SUPER_ADMIN'] },
-  { path: '/patients', icon: Users, label: 'Pacientes', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+  { path: '/users', icon: Shield, label: 'Usuarios', roles: ['SUPER_ADMIN'] },
+  { path: '/patients', icon: Users, label: 'Pacientes', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
   { path: '/profile', icon: UserCircle, label: 'Perfil', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
-  { path: '/appointments', icon: Calendar, label: 'Citas', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
-  { path: '/clinical-history', icon: FileText, label: 'Historia Clínica', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
-  { path: '/settings', icon: Settings, label: 'Configuración', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { path: '/appointments', icon: Calendar, label: 'Citas', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+  { path: '/clinical-history', icon: FileText, label: 'Historia Clínica', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+  { path: '/settings', icon: Settings, label: 'Configuración', roles: ['ADMIN'] },
 ];
 
 interface AppSidebarProps {

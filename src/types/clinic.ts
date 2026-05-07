@@ -1,13 +1,12 @@
 export interface Clinic {
     id: number;
     name: string;
-    commercialName?: string;
-    nit?: string;
-    address?: string;
+    subdomain: string;
     phone?: string;
     email?: string;
-    subdomain?: string;
+    address?: string;
     logoUrl?: string;
+    faviconUrl?: string;
     isActive?: boolean;
     createdAt?: string;
     updatedAt?: string;
@@ -15,23 +14,21 @@ export interface Clinic {
 
 export interface CreateClinicDto {
     name: string;
-    commercialName?: string;
-    nit?: string;
-    address?: string;
+    subdomain: string;
     phone?: string;
     email?: string;
-    subdomain?: string;
+    address?: string;
     logoUrl?: string;
+    faviconUrl?: string;
 }
 
 export interface UpdateClinicDto {
     name?: string;
-    commercialName?: string;
-    nit?: string;
-    address?: string;
+    subdomain?: string;
     phone?: string;
     email?: string;
-    subdomain?: string;
+    address?: string;
     logoUrl?: string;
+    faviconUrl?: string;
     isActive?: boolean;
 }

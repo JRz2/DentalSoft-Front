@@ -33,8 +33,6 @@ export function ClinicsPage() {
         const searchLower = searchTerm.toLowerCase();
         return (
             clinic.name.toLowerCase().includes(searchLower) ||
-            (clinic.commercialName && clinic.commercialName.toLowerCase().includes(searchLower)) ||
-            (clinic.nit && clinic.nit.toLowerCase().includes(searchLower)) ||
             (clinic.email && clinic.email.toLowerCase().includes(searchLower))
         );
     });
@@ -150,12 +148,12 @@ export function ClinicsPage() {
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-gray-500">
-                            Con NIT registrado
+                            Con email configurado
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-blue-600">
-                            {clinics?.filter(c => c.nit).length || 0}
+                            {clinics?.filter(c => c.email).length || 0}
                         </div>
                     </CardContent>
                 </Card>
@@ -163,12 +161,12 @@ export function ClinicsPage() {
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-gray-500">
-                            Con email configurado
+                            Con logo personalizado
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold text-purple-600">
-                            {clinics?.filter(c => c.email).length || 0}
+                            {clinics?.filter(c => c.logoUrl).length || 0}
                         </div>
                     </CardContent>
                 </Card>
@@ -182,7 +180,7 @@ export function ClinicsPage() {
                         <div className="w-full sm:w-72">
                             <SearchBar
                                 onSearch={handleSearch}
-                                placeholder="Buscar por nombre, NIT o email..."
+                                placeholder="Buscar por nombre, o email..."
                                 delay={500}
                             />
                         </div>
