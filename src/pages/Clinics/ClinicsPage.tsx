@@ -8,10 +8,11 @@ import { ClinicModal } from '@/components/clinics/ClinicModal';
 import { DeleteConfirmDialog } from '@/components/patients/DeleteConfirmDialog';
 import { SearchBar } from '@/components/shared/SearchBar';
 import { Plus } from 'lucide-react';
+import api from '@/services/api';
 
 export function ClinicsPage() {
     const { user: currentUser } = useAuth();
-    const { data: clinics, isLoading } = useClinics();
+    const { data: clinics, isLoading, refetch } = useClinics();
     const createClinic = useCreateClinic();
     const updateClinic = useUpdateClinic();
     const deleteClinic = useDeleteClinic();
@@ -77,17 +78,44 @@ export function ClinicsPage() {
         setDeleteDialogOpen(true);
     };
 
-    const handleSubmitForm = async (data: any) => {
+    const handleSubmitForm = async (data: any, files?: { logoFile?: File; faviconFile?: File }) => {
         try {
+            let logoUrl = data.logoUrl;
+            let faviconUrl = data.faviconUrl;
+
+            // Para nueva clínica: subir imágenes primero
+            if (!isEditing && (files?.logoFile || files?.faviconFile)) {
+                const formDataLogo = new FormData();
+                if (files?.logoFile) {
+                    formDataLogo.append('file', files.logoFile);
+                    const logoResponse = await api.post('/uploads/temp', formDataLogo, {
+                        headers: { 'Content-Type': 'multipart/form-data' },
+                    });
+                    logoUrl = logoResponse.data.fileUrl;
+                }
+
+                const formDataFavicon = new FormData();
+                if (files?.faviconFile) {
+                    formDataFavicon.append('file', files.faviconFile);
+                    const faviconResponse = await api.post('/uploads/temp', formDataFavicon, {
+                        headers: { 'Content-Type': 'multipart/form-data' },
+                    });
+                    faviconUrl = faviconResponse.data.fileUrl;
+                }
+            }
+
+            const clinicData = { ...data, logoUrl, faviconUrl };
+
             if (isEditing && selectedClinic) {
                 await updateClinic.mutateAsync({
                     id: selectedClinic.id,
-                    data,
+                    data: clinicData,
                 });
             } else {
-                await createClinic.mutateAsync(data);
+                await createClinic.mutateAsync(clinicData);
             }
             setModalOpen(false);
+            await refetch();
         } catch (error) {
             console.error('Error al guardar:', error);
         }
@@ -210,6 +238,7 @@ export function ClinicsPage() {
                 onSubmit={handleSubmitForm}
                 isLoading={createClinic.isPending || updateClinic.isPending}
                 clinic={selectedClinic}
+                clinicId={selectedClinic?.id}
             />
 
             {/* Diálogo de confirmación para eliminar */}

@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ImageUpload } from '@/components/shared/ImageUpload';
+import { useState } from 'react';
 
 const clinicSchema = z.object({
     name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
@@ -11,7 +13,7 @@ const clinicSchema = z.object({
         .min(3, 'El subdominio debe tener al menos 3 caracteres')
         .regex(/^[a-z0-9]+$/, 'Solo letras minúsculas y números sin espacios'),
     phone: z.string().optional(),
-    email: z.string().email('Email inválido').optional().or(z.literal('')),
+    email: z.string().optional(),
     address: z.string().optional(),
     logoUrl: z.string().optional(),
     faviconUrl: z.string().optional(),
@@ -21,9 +23,11 @@ type ClinicFormData = z.infer<typeof clinicSchema>;
 
 interface ClinicFormProps {
     defaultValues?: Partial<ClinicFormData>;
-    onSubmit: (data: ClinicFormData) => void;
+    onSubmit: (data: ClinicFormData, files?: { logoFile?: File; faviconFile?: File }) => void;
     isLoading?: boolean;
     submitLabel?: string;
+    clinicId?: number;
+    isEditing?: boolean;
 }
 
 export function ClinicForm({
@@ -31,12 +35,10 @@ export function ClinicForm({
     onSubmit,
     isLoading,
     submitLabel = 'Guardar',
+    clinicId,
+    isEditing = false,
 }: ClinicFormProps) {
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-    } = useForm<ClinicFormData>({
+    const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<ClinicFormData>({
         resolver: zodResolver(clinicSchema),
         defaultValues: defaultValues || {
             name: '',
@@ -49,8 +51,41 @@ export function ClinicForm({
         },
     });
 
+    const logoUrl = watch('logoUrl');
+    const faviconUrl = watch('faviconUrl');
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [faviconFile, setFaviconFile] = useState<File | null>(null);
+
+    // Asegurar que el logo se muestra después de guardar
+    const handleLogoUpload = (url: string, file?: File) => {
+        if (file) {
+            // Es una nueva imagen seleccionada (preview local)
+            setLogoFile(file);
+            // Si es una nueva clínica, la URL está vacía, usamos el archivo para preview
+            if (!url) {
+                setValue('logoUrl', '');
+            } else {
+                setValue('logoUrl', url);
+            }
+        } else if (url) {
+            // Es una URL del servidor
+            setValue('logoUrl', url);
+        }
+    };
+
+    const handleFaviconUpload = (url: string, file?: File) => {
+        setValue('faviconUrl', url);
+        if (file) setFaviconFile(file);
+    };
+
+    const handleFormSubmit = (data: ClinicFormData) => {
+        onSubmit(data, { logoFile: logoFile || undefined, faviconFile: faviconFile || undefined });
+    };
+
+    const isNewClinic = !isEditing;
+
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <Label htmlFor="name">Nombre de la clínica *</Label>
@@ -94,11 +129,8 @@ export function ClinicForm({
                         id="email"
                         type="email"
                         {...register('email')}
-                        placeholder="info@clinica.com"
+                        placeholder="info@clinica.com (opcional)"
                     />
-                    {errors.email && (
-                        <p className="text-sm text-red-500">{errors.email.message}</p>
-                    )}
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
@@ -110,21 +142,25 @@ export function ClinicForm({
                     />
                 </div>
 
-                <div className="space-y-2">
-                    <Label htmlFor="logoUrl">URL del logo</Label>
-                    <Input
-                        id="logoUrl"
-                        {...register('logoUrl')}
-                        placeholder="https://ejemplo.com/logo.png"
+                {/* Subida de logo */}
+                <div className="md:col-span-2">
+                    <ImageUpload
+                        label="Logo de la clínica"
+                        currentImage={logoUrl}
+                        onImageUploaded={handleLogoUpload}
+                        clinicId={clinicId}
+                        isNewClinic={isNewClinic}
                     />
                 </div>
 
-                <div className="space-y-2">
-                    <Label htmlFor="faviconUrl">URL del favicon</Label>
-                    <Input
-                        id="faviconUrl"
-                        {...register('faviconUrl')}
-                        placeholder="https://ejemplo.com/favicon.ico"
+                {/* Subida de favicon */}
+                <div className="md:col-span-2">
+                    <ImageUpload
+                        label="Favicon"
+                        currentImage={faviconUrl}
+                        onImageUploaded={handleFaviconUpload}
+                        clinicId={clinicId}
+                        isNewClinic={isNewClinic}
                     />
                 </div>
             </div>

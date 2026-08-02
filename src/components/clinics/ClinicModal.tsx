@@ -14,6 +14,7 @@ interface ClinicModalProps {
     onSubmit: (data: any) => void;
     isLoading?: boolean;
     clinic?: Clinic | null;
+    clinicId?: number;
 }
 
 export function ClinicModal({
@@ -22,18 +23,18 @@ export function ClinicModal({
     onSubmit,
     isLoading,
     clinic,
+    clinicId,
 }: ClinicModalProps) {
     const isEditing = !!clinic;
 
     const defaultValues = clinic ? {
         name: clinic.name,
-        commercialName: clinic.commercialName || '',
-        nit: clinic.nit || '',
-        address: clinic.address || '',
+        subdomain: clinic.subdomain,
         phone: clinic.phone || '',
         email: clinic.email || '',
-        subdomain: clinic.subdomain || '',
+        address: clinic.address || '',
         logoUrl: clinic.logoUrl || '',
+        faviconUrl: clinic.faviconUrl || '',
     } : {};
 
     return (
@@ -52,6 +53,8 @@ export function ClinicModal({
                     onSubmit={onSubmit}
                     isLoading={isLoading}
                     submitLabel={isEditing ? 'Actualizar' : 'Crear'}
+                    clinicId={clinicId || clinic?.id}
+                    isEditing={isEditing}
                 />
             </DialogContent>
         </Dialog>
