@@ -21,6 +21,7 @@ export const createPatientSchema = z.object({
             return age >= 0 && age <= 120;
         }, 'Fecha de nacimiento inválida'),
     address: z.string().max(200, 'Dirección no puede exceder 200 caracteres').optional(),
+    photoUrl: z.string().optional(),
     dentalHistory: z.string().max(500, 'Historial no puede exceder 500 caracteres').optional(),
     habits: z.string().max(200, 'Hábitos no pueden exceder 200 caracteres').optional(),
     medicalConditions: z.string().max(500, 'Condiciones médicas no pueden exceder 500 caracteres').optional(),

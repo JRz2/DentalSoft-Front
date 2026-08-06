@@ -5,6 +5,7 @@ export interface Patient {
     email: string;
     birthDate: string;
     address?: string;
+    photoUrl?: string;
     dentalHistory?: string;
     habits?: string;
     medicalRecordNum?: string;
@@ -21,6 +22,7 @@ export interface CreatePatientDto {
     email: string;
     birthDate: string;
     address?: string;
+    photoUrl?: string;
     dentalHistory?: string;
     habits?: string;
     medicalConditions?: string;
@@ -32,6 +34,7 @@ export interface UpdatePatientDto {
     email?: string;
     birthDate?: string;
     address?: string;
+    photoUrl?: string;
     dentalHistory?: string;
     habits?: string;
     medicalConditions?: string;

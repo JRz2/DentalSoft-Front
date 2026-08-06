@@ -10,11 +10,11 @@ import { CreatePatientInput } from '@/lib/validations/patient.schema';
 import { Patient } from '@/types/patient';
 
 const formatDateForInput = (dateFromBackend: string | undefined): string => {
-  if (!dateFromBackend) return '';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateFromBackend)) return dateFromBackend;
-  const date = new Date(dateFromBackend);
-  if (isNaN(date.getTime())) return '';
-  return date.toISOString().split('T')[0];
+    if (!dateFromBackend) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateFromBackend)) return dateFromBackend;
+    const date = new Date(dateFromBackend);
+    if (isNaN(date.getTime())) return '';
+    return date.toISOString().split('T')[0];
 };
 
 interface PatientModalProps {
@@ -23,6 +23,7 @@ interface PatientModalProps {
     onSubmit: (data: CreatePatientInput) => void;
     isLoading?: boolean;
     patient?: Patient | null;
+    onPhotoUploaded?: () => void;
 }
 
 export function PatientModal({
@@ -31,6 +32,7 @@ export function PatientModal({
     onSubmit,
     isLoading,
     patient,
+    onPhotoUploaded,
 }: PatientModalProps) {
     const isEditing = !!patient;
 
@@ -40,10 +42,12 @@ export function PatientModal({
             email: patient.email,
             phoneNumber: patient.phoneNumber,
             birthDate: formatDateForInput(patient.birthDate),
-            address: patient.address,
-            dentalHistory: patient.dentalHistory,
-            habits: patient.habits,
-            medicalConditions: patient.medicalConditions,
+            address: patient.address || '',
+            photoUrl: patient.photoUrl || '',
+            dentalHistory: patient.dentalHistory || '',
+            habits: patient.habits || '',
+            medicalConditions: patient.medicalConditions || '',
+
         }
         : {};
 
@@ -63,6 +67,9 @@ export function PatientModal({
                     onSubmit={onSubmit}
                     isLoading={isLoading}
                     submitLabel={isEditing ? 'Actualizar' : 'Crear'}
+                    patientId={patient?.id}
+                    isEditing={isEditing}
+                    onPhotoUploaded={onPhotoUploaded}
                 />
             </DialogContent>
         </Dialog>

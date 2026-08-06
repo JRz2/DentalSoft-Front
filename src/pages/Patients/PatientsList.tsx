@@ -9,12 +9,12 @@ import { DeleteConfirmDialog } from '@/components/patients/DeleteConfirmDialog';
 import { SearchBar } from '@/components/shared/SearchBar';
 import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient } from '@/hooks/usePatients';
 import { Patient, CreatePatientDto } from '@/types/patient';
+import api from '@/services/api';
 
 export function PatientsList() {
-
     const navigate = useNavigate();
-    
-    //estados
+
+    // Estados
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [modalOpen, setModalOpen] = useState(false);
@@ -22,7 +22,7 @@ export function PatientsList() {
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
     const [isEditing, setIsEditing] = useState(false);
 
-    // PAginacion
+    // Paginación
     const itemsPerPage = 10;
 
     // Hooks de React Query
@@ -63,15 +63,43 @@ export function PatientsList() {
         navigate(`/clinical-history/${patient.id}`);
     };
 
-    const handleSubmitForm = async (data: CreatePatientDto) => {
+    const handleSubmitForm = async (data: CreatePatientDto, files?: { photoFile?: File }) => {
         try {
+            let photoUrl = data.photoUrl || '';
+
+            // Si es un paciente nuevo y hay una foto seleccionada
+            if (!isEditing && files?.photoFile) {
+                const formData = new FormData();
+                formData.append('file', files.photoFile);
+
+                try {
+                    const response = await api.post('/uploads/temp', formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' },
+                    });
+                    photoUrl = response.data.fileUrl;
+                } catch (error) {
+                    console.error('Error al subir foto temporal:', error);
+                }
+            }
+
+            // Para edición, NO enviar photoUrl en el PATCH
+            let patientData;
+            if (isEditing && selectedPatient) {
+                // Edición: enviar todo EXCEPTO photoUrl
+                const { photoUrl: _, ...restData } = data;
+                patientData = { ...restData };
+            } else {
+                // Creación: enviar con photoUrl
+                patientData = { ...data, photoUrl };
+            }
+
             if (isEditing && selectedPatient) {
                 await updatePatient.mutateAsync({
                     id: selectedPatient.id,
-                    data: data,
+                    data: patientData,
                 });
             } else {
-                await createPatient.mutateAsync(data);
+                await createPatient.mutateAsync(patientData);
             }
             setModalOpen(false);
             refetch();
@@ -91,6 +119,12 @@ export function PatientsList() {
                 console.error('Error al eliminar:', error);
             }
         }
+    };
+
+    // Función que se ejecuta cuando se sube una foto en edición
+    const handlePhotoUploaded = () => {
+        console.log('📸 Foto subida, refrescando lista...');
+        refetch();
     };
 
     return (
@@ -189,59 +223,6 @@ export function PatientsList() {
                             onPageChange: (page) => setCurrentPage(page),
                         }}
                     />
-
-                    {/* Paginación */}
-                    {data && data.totalPages > 1 && (
-                        <div className="flex items-center justify-between mt-4">
-                            <div className="text-sm text-gray-500">
-                                Mostrando {((currentPage - 1) * itemsPerPage) + 1} a{' '}
-                                {Math.min(currentPage * itemsPerPage, data.total)} de {data.total} resultados
-                            </div>
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                    disabled={currentPage === 1}
-                                >
-                                    Anterior
-                                </Button>
-                                <div className="flex gap-1">
-                                    {Array.from({ length: Math.min(5, data.totalPages) }, (_, i) => {
-                                        let pageNum;
-                                        if (data.totalPages <= 5) {
-                                            pageNum = i + 1;
-                                        } else if (currentPage <= 3) {
-                                            pageNum = i + 1;
-                                        } else if (currentPage >= data.totalPages - 2) {
-                                            pageNum = data.totalPages - 4 + i;
-                                        } else {
-                                            pageNum = currentPage - 2 + i;
-                                        }
-
-                                        return (
-                                            <Button
-                                                key={pageNum}
-                                                variant={currentPage === pageNum ? 'default' : 'outline'}
-                                                size="sm"
-                                                onClick={() => setCurrentPage(pageNum)}
-                                            >
-                                                {pageNum}
-                                            </Button>
-                                        );
-                                    })}
-                                </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setCurrentPage(p => Math.min(data.totalPages, p + 1))}
-                                    disabled={currentPage === data.totalPages}
-                                >
-                                    Siguiente
-                                </Button>
-                            </div>
-                        </div>
-                    )}
                 </CardContent>
             </Card>
 
@@ -252,6 +233,7 @@ export function PatientsList() {
                 onSubmit={handleSubmitForm}
                 isLoading={createPatient.isPending || updatePatient.isPending}
                 patient={selectedPatient}
+                onPhotoUploaded={handlePhotoUploaded}
             />
 
             {/* Diálogo de confirmación para eliminar */}

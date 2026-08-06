@@ -5,12 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { PatientImageUpload } from '@/components/shared/PatientImageUpload';
+import { useState } from 'react';
 
 interface PatientFormProps {
     defaultValues?: Partial<CreatePatientInput>;
-    onSubmit: (data: CreatePatientInput) => void;
+    onSubmit: (data: CreatePatientInput, files?: { photoFile?: File }) => void;
     isLoading?: boolean;
     submitLabel?: string;
+    patientId?: number;
+    isEditing?: boolean;
+    onPhotoUploaded?: () => void;
 }
 
 export function PatientForm({
@@ -18,10 +23,15 @@ export function PatientForm({
     onSubmit,
     isLoading,
     submitLabel = 'Guardar',
+    patientId,
+    isEditing = false,
+    onPhotoUploaded,
 }: PatientFormProps) {
     const {
         register,
         handleSubmit,
+        setValue,
+        watch,
         formState: { errors },
     } = useForm<CreatePatientInput>({
         resolver: zodResolver(createPatientSchema),
@@ -34,12 +44,45 @@ export function PatientForm({
             dentalHistory: '',
             habits: '',
             medicalConditions: '',
+            photoUrl: '',
         },
     });
 
+    const photoUrl = watch('photoUrl');
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const isNewPatient = !isEditing;
+
+    const handlePhotoUpload = (url: string, file?: File) => {
+        setValue('photoUrl', url);
+        if (file) {
+            setPhotoFile(file);
+        }
+    };
+
+    const handleFormSubmit = (data: CreatePatientInput) => {
+        onSubmit(data, { photoFile: photoFile || undefined });
+    };
+
+    const handlePhotoFileSelected = (file: File) => {
+        setPhotoFile(file);
+    };
+
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Foto del paciente */}
+                <div className="md:col-span-2">
+                    <PatientImageUpload
+                        currentImage={photoUrl}
+                        onImageUploaded={handlePhotoUpload}
+                        patientId={patientId}
+                        isNewPatient={isNewPatient}
+                        onFileSelected={handlePhotoFileSelected}
+                        onPhotoUploaded={onPhotoUploaded}
+                    />
+                </div>
+
+                {/* Resto del formulario existente */}
                 <div className="space-y-2">
                     <Label htmlFor="fullName">Nombre completo *</Label>
                     <Input
