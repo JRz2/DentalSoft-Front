@@ -20,6 +20,28 @@ interface PatientTableProps {
         onPageChange: (page: number) => void;
     };
 }
+// Función para obtener iniciales
+const getInitials = (name: string) => {
+    return name
+        .split(' ')
+        .map(word => word[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
+};
+// Función para obtener URL completa de la imagen
+const getImageUrl = (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+        return path;
+    }
+    if (path.startsWith('/')) {
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
+        return `${cleanBaseUrl}${path}`;
+    }
+    return path;
+};
 
 export function PatientTable({
     data,
@@ -32,18 +54,38 @@ export function PatientTable({
     // Definir las columnas para TanStack Table
     const columns: ColumnDef<Patient>[] = [
         {
+            accessorKey: 'photoUrl',
+            header: 'Foto',
+            size: 80,
+            cell: ({ row }) => {
+                const photoUrl = row.getValue('photoUrl') as string;
+                const fullName = row.getValue('fullName') as string;
+                const fullImageUrl = photoUrl ? getImageUrl(photoUrl) : '';
+
+                return (
+                    <div className="h-14 w-14 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 flex items-center justify-center">
+                        {fullImageUrl ? (
+                            <img
+                                src={fullImageUrl}
+                                alt={fullName}
+                                className="h-full w-full object-cover"
+                            />
+                        ) : (
+                            <span className="text-xs font-medium text-primary-700">
+                                {getInitials(fullName)}
+                            </span>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
             accessorKey: 'fullName',
             header: 'Nombre',
             size: 200,
             cell: ({ row }) => (
                 <div className="font-medium text-gray-900">{row.getValue('fullName')}</div>
             ),
-        },
-        {
-            accessorKey: 'email',
-            header: 'Email',
-            size: 250,
-            cell: ({ row }) => <div className="text-gray-600">{row.getValue('email')}</div>,
         },
         {
             accessorKey: 'phoneNumber',
@@ -61,23 +103,10 @@ export function PatientTable({
             },
         },
         {
-            accessorKey: 'birthDate',
-            header: 'Fecha Nac.',
-            size: 120,
-            cell: ({ row }) => {
-                const date = row.getValue('birthDate') as string;
-                if (!date) return '-';
-                const isoDate = date.split('T')[0]; 
-                const [year, month, day] = isoDate.split('-');
-                return <div className="text-gray-600">{`${day}/${month}/${year}`}</div>;
-            },
-        },
-     {
-            id: 'deletedStatus',  // ← Cambiar a id en lugar de accessorKey
+            id: 'deletedStatus',
             header: 'Eliminado',
             size: 100,
             cell: ({ row }) => {
-                // ✅ Acceder directamente a row.original.deletedAt
                 const isDeleted = !!row.original.deletedAt;
                 return isDeleted ? (
                     <Badge variant="destructive" className="bg-red-100 text-red-700">

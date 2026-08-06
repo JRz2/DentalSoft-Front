@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table';
+import { ColumnDef, flexRender, getCoreRowModel, getSortedRowModel, SortingState, useReactTable } from '@tanstack/react-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,11 +30,11 @@ export function DataTableShadcn<TData, TValue>({
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [rowSelection, setRowSelection] = React.useState({});
 
+    // Configuración SIMPLE - SIN paginación interna
     const table = useReactTable({
         data,
         columns,
         getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
         getSortedRowModel: getSortedRowModel(),
         onSortingChange: setSorting,
         onRowSelectionChange: setRowSelection,
@@ -42,9 +42,9 @@ export function DataTableShadcn<TData, TValue>({
             sorting,
             rowSelection,
         },
+        manualPagination: true, 
     });
 
-    // Mostrar skeletons mientras carga
     if (isLoading) {
         return (
             <div className="rounded-md border">
@@ -73,6 +73,8 @@ export function DataTableShadcn<TData, TValue>({
             </div>
         );
     }
+
+    const rows = table.getRowModel().rows;
 
     return (
         <div className="space-y-4">
@@ -113,11 +115,10 @@ export function DataTableShadcn<TData, TValue>({
                         ))}
                     </TableHeader>
                     <TableBody>
-                        {table.getRowModel().rows?.length ? (
-                            table.getRowModel().rows.map((row) => (
+                        {rows.length > 0 ? (
+                            rows.map((row) => (
                                 <TableRow
                                     key={row.id}
-                                    data-state={row.getIsSelected() && 'selected'}
                                     className={cn(
                                         'hover:bg-gray-50 transition-colors',
                                         onRowClick && 'cursor-pointer'
@@ -142,7 +143,7 @@ export function DataTableShadcn<TData, TValue>({
                 </Table>
             </div>
 
-            {/* Paginación con shadcn */}
+            {/* Paginación EXTERNA - solo visual */}
             {pagination && pagination.totalPages > 1 && (
                 <div className="flex items-center justify-between">
                     <div className="text-sm text-gray-500">

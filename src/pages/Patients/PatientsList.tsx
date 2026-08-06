@@ -14,7 +14,6 @@ import api from '@/services/api';
 export function PatientsList() {
     const navigate = useNavigate();
 
-    // Estados
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [modalOpen, setModalOpen] = useState(false);
@@ -22,10 +21,8 @@ export function PatientsList() {
     const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
     const [isEditing, setIsEditing] = useState(false);
 
-    // Paginación
     const itemsPerPage = 10;
 
-    // Hooks de React Query
     const { data, isLoading, refetch } = usePatients({
         page: currentPage,
         limit: itemsPerPage,
@@ -36,10 +33,11 @@ export function PatientsList() {
     const updatePatient = useUpdatePatient();
     const deletePatient = useDeletePatient();
 
-    // Handlers
     const handleSearch = (value: string) => {
         setSearchTerm(value);
-        setCurrentPage(1);
+        if (value.trim() !== '') {
+            setCurrentPage(1);
+        }
     };
 
     const handleCreate = () => {
@@ -67,7 +65,6 @@ export function PatientsList() {
         try {
             let photoUrl = data.photoUrl || '';
 
-            // Si es un paciente nuevo y hay una foto seleccionada
             if (!isEditing && files?.photoFile) {
                 const formData = new FormData();
                 formData.append('file', files.photoFile);
@@ -82,14 +79,11 @@ export function PatientsList() {
                 }
             }
 
-            // Para edición, NO enviar photoUrl en el PATCH
             let patientData;
             if (isEditing && selectedPatient) {
-                // Edición: enviar todo EXCEPTO photoUrl
                 const { photoUrl: _, ...restData } = data;
                 patientData = { ...restData };
             } else {
-                // Creación: enviar con photoUrl
                 patientData = { ...data, photoUrl };
             }
 
@@ -121,9 +115,7 @@ export function PatientsList() {
         }
     };
 
-    // Función que se ejecuta cuando se sube una foto en edición
     const handlePhotoUploaded = () => {
-        console.log('📸 Foto subida, refrescando lista...');
         refetch();
     };
 

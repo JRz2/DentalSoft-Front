@@ -7,7 +7,10 @@ import { toast } from 'sonner';
 export const patientKeys = {
     all: ['patients'] as const,
     lists: () => [...patientKeys.all, 'list'] as const,
-    list: (filter: any) => [...patientKeys.lists(), filter] as const,
+    list: (filters: any) => {
+        const key = JSON.stringify(filters);
+        return [...patientKeys.lists(), key] as const;
+    },
     details: () => [...patientKeys.all, 'details'] as const,
     detail: (id: number) => [...patientKeys.details(), id] as const,
 };
@@ -18,14 +21,24 @@ export const usePatients = (params?: {
     limit?: number;
     search?: string;
 }) => {
+    const normalizedParams = {
+        page: params?.page || 1,
+        limit: params?.limit || 10,
+        search: params?.search || '',
+    };
+
+     const queryKey = ['patients', 'list', JSON.stringify(normalizedParams)];
+
     return useQuery({
-        queryKey: patientKeys.list(params || {}),
-        queryFn: () => patientService.getAll(params),
+        queryKey: queryKey,
+        queryFn: () => {
+            return patientService.getAll(normalizedParams);
+        },
+        retry: 1,
     });
 };
 
-
-// Hook para obtener un paciente po ID
+// Hook para obtener un paciente por ID
 export const usePatient = (id: number) => {
     return useQuery({
         queryKey: patientKeys.detail(id),
@@ -50,7 +63,7 @@ export const useCreatePatient = () => {
     });
 };
 
-// Hook para actulizar paciente
+// Hook para actualizar paciente
 export const useUpdatePatient = () => {
     const queryClient = useQueryClient();
 
