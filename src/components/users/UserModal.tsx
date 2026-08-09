@@ -11,10 +11,11 @@ import { Clinic } from '@/types/user';
 interface UserModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSubmit: (data: any) => void;
+    onSubmit: (data: any, files?: { photoFile?: File }) => void;
     isLoading?: boolean;
     user?: any;
     clinics?: Clinic[];
+    onPhotoUploaded?: () => void;
 }
 
 export function UserModal({
@@ -24,6 +25,7 @@ export function UserModal({
     isLoading,
     user,
     clinics = [],
+    onPhotoUploaded,
 }: UserModalProps) {
     const isEditing = !!user;
 
@@ -35,6 +37,7 @@ export function UserModal({
         specialty: user.specialty || '',
         licenseNumber: user.licenseNumber || '',
         phoneNumber: user.phoneNumber || '',
+        photoUrl: user.photoUrl || '',
     } : {};
 
     return (
@@ -55,6 +58,8 @@ export function UserModal({
                     isEditing={isEditing}
                     clinics={clinics}
                     submitLabel={isEditing ? 'Actualizar' : 'Crear'}
+                    userId={user?.id}
+                    onPhotoUploaded={onPhotoUploaded}
                 />
             </DialogContent>
         </Dialog>

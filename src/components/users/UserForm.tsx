@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { UserImageUpload } from '@/components/shared/UserImageUpload';
 import { Clinic } from '@/types/user';
+import { useState } from 'react';
 
-// Esquema de validación
 const userSchema = z.object({
     name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
     email: z.string().email('Email inválido'),
@@ -17,17 +18,20 @@ const userSchema = z.object({
     specialty: z.string().optional(),
     licenseNumber: z.string().optional(),
     phoneNumber: z.string().optional(),
+    photoUrl: z.string().optional(),
 });
 
 type UserFormData = z.infer<typeof userSchema>;
 
 interface UserFormProps {
     defaultValues?: Partial<UserFormData>;
-    onSubmit: (data: UserFormData) => void;
+    onSubmit: (data: UserFormData, files?: { photoFile?: File }) => void;
     isLoading?: boolean;
     isEditing?: boolean;
     clinics?: Clinic[];
     submitLabel?: string;
+    userId?: number;
+    onPhotoUploaded?: () => void;
 }
 
 export function UserForm({
@@ -37,6 +41,8 @@ export function UserForm({
     isEditing = false,
     clinics = [],
     submitLabel = 'Guardar',
+    userId,
+    onPhotoUploaded,
 }: UserFormProps) {
     const {
         register,
@@ -55,14 +61,38 @@ export function UserForm({
             specialty: '',
             licenseNumber: '',
             phoneNumber: '',
+            photoUrl: '',
         },
     });
 
+    const photoUrl = watch('photoUrl');
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
     const selectedRole = watch('role');
+    const isNewUser = !isEditing;
+
+    const handlePhotoFileSelected = (file: File) => {
+        setPhotoFile(file);
+    };
+
+    const handleFormSubmit = (data: UserFormData) => {
+        onSubmit(data, { photoFile: photoFile || undefined });
+    };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Foto del usuario */}
+                <div className="md:col-span-2">
+                    <UserImageUpload
+                        currentImage={photoUrl}
+                        onImageUploaded={(url) => setValue('photoUrl', url)}
+                        userId={userId}
+                        isNewUser={isNewUser}
+                        onFileSelected={handlePhotoFileSelected}
+                        onPhotoUploaded={onPhotoUploaded}
+                    />
+                </div>
+
                 {/* Nombre */}
                 <div className="space-y-2">
                     <Label htmlFor="name">Nombre completo *</Label>

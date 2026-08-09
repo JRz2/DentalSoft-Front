@@ -8,6 +8,7 @@ export interface User {
     specialty?: string;
     licenseNumber?: string;
     phoneNumber?: string;
+    photoUrl?: string;
     isActive: boolean;
     createdAt?: string;
     updatedAt?: string;
@@ -33,6 +34,7 @@ export interface CreateUserDto {
     specialty?: string;
     licenseNumber?: string;
     phoneNumber?: string;
+    photoUrl?: string;
 }
 
 export interface UpdateUserDto {
@@ -44,4 +46,5 @@ export interface UpdateUserDto {
     licenseNumber?: string;
     phoneNumber?: string;
     isActive?: boolean;
+    photoUrl?: string;
 }

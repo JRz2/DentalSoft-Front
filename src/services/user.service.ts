@@ -9,6 +9,7 @@ export interface UserProfile {
     specialty?: string;
     licenseNumber?: string;
     phoneNumber?: string;
+    photoUrl?: string;
     isActive: boolean;
     createdAt?: string;
     updatedAt?: string;

@@ -5,9 +5,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { User, Mail, Phone, Stethoscope, Key, Save, Camera, Shield, IdCard } from 'lucide-react';
+
+// Función para obtener URL completa de la imagen
+const getImageUrl = (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+        return path;
+    }
+    if (path.startsWith('/')) {
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
+        return `${cleanBaseUrl}${path}`;
+    }
+    return path;
+};
 
 export function ProfilePage() {
     const { user } = useAuth();
@@ -124,6 +138,14 @@ export function ProfilePage() {
                             <div className="flex flex-col items-center text-center">
                                 <div className="relative">
                                     <Avatar className="h-32 w-32 border-4 border-primary-100">
+                                        {/* Mostrar foto si existe */}
+                                        {profile?.photoUrl && (
+                                            <AvatarImage
+                                                src={getImageUrl(profile.photoUrl)}
+                                                alt={profile?.name || user?.name || 'Usuario'}
+                                                className="object-cover"
+                                            />
+                                        )}
                                         <AvatarFallback className="bg-gradient-to-r from-primary-500 to-primary-600 text-white text-3xl">
                                             {getInitials(profile?.name || user?.name || 'U')}
                                         </AvatarFallback>

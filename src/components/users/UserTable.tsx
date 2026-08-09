@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTableShadcn } from '@/components/shared/DataTableShadcn';
 import { User } from '@/types/user';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface UserTableProps {
     data: User[];
@@ -27,6 +28,30 @@ const roleLabels: Record<string, { label: string; color: string }> = {
     RECEPTIONIST: { label: 'Recepcionista', color: 'bg-yellow-100 text-yellow-700' },
 };
 
+// Función para obtener iniciales
+const getInitials = (name: string) => {
+    return name
+        .split(' ')
+        .map(word => word[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
+};
+
+// Función para obtener URL completa de la imagen
+const getImageUrl = (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+        return path;
+    }
+    if (path.startsWith('/')) {
+        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
+        return `${cleanBaseUrl}${path}`;
+    }
+    return path;
+};
+
 export function UserTable({
     data,
     isLoading,
@@ -36,6 +61,31 @@ export function UserTable({
     pagination,
 }: UserTableProps) {
     const columns: ColumnDef<User>[] = [
+        {
+            accessorKey: 'photoUrl',
+            header: 'Foto',
+            size: 80,
+            cell: ({ row }) => {
+                const photoUrl = row.getValue('photoUrl') as string;
+                const fullName = row.getValue('name') as string;
+                const fullImageUrl = photoUrl ? getImageUrl(photoUrl) : '';
+
+                return (
+                    <Avatar className="h-10 w-10 rounded-full border border-gray-200 flex-shrink-0">
+                        {fullImageUrl && (
+                            <AvatarImage
+                                src={fullImageUrl}
+                                alt={fullName}
+                                className="h-full w-full object-cover rounded-full"
+                            />
+                        )}
+                        <AvatarFallback className="h-full w-full rounded-full bg-primary-100 text-primary-700 text-xs font-medium flex items-center justify-center">
+                            {getInitials(fullName)}
+                        </AvatarFallback>
+                    </Avatar>
+                );
+            },
+        },
         {
             accessorKey: 'name',
             header: 'Nombre',
