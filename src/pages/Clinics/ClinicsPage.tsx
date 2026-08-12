@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useClinics, useCreateClinic, useUpdateClinic, useDeleteClinic } from '@/hooks/useClinics';
+import { useClinics, useCreateClinic, useUpdateClinic, useDeleteClinic, useReactivateClinic } from '@/hooks/useClinics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClinicTable } from '@/components/clinics/ClinicTable';
@@ -16,6 +16,7 @@ export function ClinicsPage() {
     const createClinic = useCreateClinic();
     const updateClinic = useUpdateClinic();
     const deleteClinic = useDeleteClinic();
+    const reactivateClinic = useReactivateClinic();
 
     // Estados
     const [searchTerm, setSearchTerm] = useState('');
@@ -58,7 +59,9 @@ export function ClinicsPage() {
 
     const handleSearch = (value: string) => {
         setSearchTerm(value);
-        setCurrentPage(1);
+        if (value.trim() !== '') {
+            setCurrentPage(1);
+        }
     };
 
     const handleCreate = () => {
@@ -78,6 +81,13 @@ export function ClinicsPage() {
         setDeleteDialogOpen(true);
     };
 
+    const handleReactivate = async (clinic: any) => {
+        try {
+            await reactivateClinic.mutateAsync(clinic.id);
+        } catch (error) {
+            console.error('Error al reactivar:', error);
+        }
+    };
     const handleSubmitForm = async (data: any, files?: { logoFile?: File; faviconFile?: File }) => {
         try {
             let logoUrl = data.logoUrl;
@@ -220,6 +230,7 @@ export function ClinicsPage() {
                         isLoading={isLoading}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
+                        onReactivate={handleReactivate}
                         pagination={{
                             currentPage,
                             totalPages,

@@ -25,4 +25,9 @@ export const clinicService = {
     delete: async (id: number): Promise<void> => {
         await api.delete(`/clinic/${id}`);
     },
+
+    reactivate: async (id: number): Promise<Clinic> => {
+        const responde = await api.patch(`/clinic/${id}/reactivate`);
+        return responde.data
+    },
 };

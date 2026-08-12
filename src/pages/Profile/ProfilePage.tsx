@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile, useUpdateProfile, useChangePassword } from '@/hooks/useUser';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { User, Mail, Phone, Stethoscope, Key, Save, Camera, Shield, IdCard } from 'lucide-react';
+import { User, Mail, Phone, Stethoscope, Key, Save, Camera, Shield, IdCard, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import api from '@/services/api';
 
 // Función para obtener URL completa de la imagen
 const getImageUrl = (path: string) => {
@@ -25,9 +27,11 @@ const getImageUrl = (path: string) => {
 
 export function ProfilePage() {
     const { user } = useAuth();
-    const { data: profile, isLoading } = useUserProfile();
+    const { data: profile, isLoading, refetch } = useUserProfile();
     const updateProfile = useUpdateProfile();
     const changePassword = useChangePassword();
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Estados para el formulario de perfil
     const [profileForm, setProfileForm] = useState({
@@ -64,6 +68,41 @@ export function ProfilePage() {
         e.preventDefault();
         await updateProfile.mutateAsync(profileForm);
         setIsEditing(false);
+    };
+
+    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast.error('Solo se permiten imágenes');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('La imagen no puede superar los 5MB');
+            return;
+        }
+
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            await api.post('/uploads/user/photo', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            toast.success('Foto de perfil actualizada exitosamente');
+            refetch();
+        } catch (error) {
+            console.error('Error al subir foto:', error);
+            const err = error as any;
+            toast.error(err.response?.data?.message || 'Error al subir la foto');
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
     };
 
     const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -136,27 +175,40 @@ export function ProfilePage() {
                     <Card>
                         <CardContent className="pt-6">
                             <div className="flex flex-col items-center text-center">
+                                {/* Avatar clickeable */}
                                 <div className="relative">
-                                    <Avatar className="h-32 w-32 border-4 border-primary-100">
-                                        {/* Mostrar foto si existe */}
-                                        {profile?.photoUrl && (
-                                            <AvatarImage
-                                                src={getImageUrl(profile.photoUrl)}
-                                                alt={profile?.name || user?.name || 'Usuario'}
-                                                className="object-cover"
-                                            />
-                                        )}
-                                        <AvatarFallback className="bg-gradient-to-r from-primary-500 to-primary-600 text-white text-3xl">
-                                            {getInitials(profile?.name || user?.name || 'U')}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <button
-                                        className="absolute bottom-0 right-0 p-1.5 bg-primary-600 rounded-full text-white hover:bg-primary-700 transition-colors"
-                                        title="Cambiar foto (próximamente)"
-                                        disabled
+                                    <div
+                                        className="cursor-pointer group"
+                                        onClick={() => fileInputRef.current?.click()}
                                     >
-                                        <Camera className="h-4 w-4" />
-                                    </button>
+                                        <Avatar className="h-32 w-32 border-4 border-primary-100 transition-opacity group-hover:opacity-80">
+                                            {profile?.photoUrl && (
+                                                <AvatarImage
+                                                    src={getImageUrl(profile.photoUrl)}
+                                                    alt={profile?.name || user?.name || 'Usuario'}
+                                                    className="object-cover"
+                                                />
+                                            )}
+                                            <AvatarFallback className="bg-gradient-to-r from-primary-500 to-primary-600 text-white text-3xl">
+                                                {getInitials(profile?.name || user?.name || 'U')}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        {/* Overlay al hacer hover */}
+                                        <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {isUploading ? (
+                                                <Loader2 className="h-8 w-8 text-white animate-spin" />
+                                            ) : (
+                                                <Camera className="h-8 w-8 text-white" />
+                                            )}
+                                        </div>
+                                    </div>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handlePhotoUpload}
+                                        className="hidden"
+                                    />
                                 </div>
                                 <h2 className="mt-4 text-xl font-semibold text-gray-900">
                                     {profile?.name || user?.name}

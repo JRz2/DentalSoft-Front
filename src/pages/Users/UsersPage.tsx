@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useUsers, useClinics, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/useUser';
+import { useUsers, useClinics, useCreateUser, useUpdateUser, useDeleteUser, useReactivateUser, useChangeUserPassword } from '@/hooks/useUser';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserTable } from '@/components/users/UserTable';
@@ -8,14 +8,20 @@ import { UserModal } from '@/components/users/UserModal';
 import { DeleteConfirmDialog } from '@/components/patients/DeleteConfirmDialog';
 import { SearchBar } from '@/components/shared/SearchBar';
 import { UserPlus } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { userKeys } from '@/hooks/useUser'
+import { ChangePasswordModal } from '@/components/users/ChangePasswordModal';
 
 export function UsersPage() {
     const { user: currentUser } = useAuth();
-    const { data: users, isLoading: usersLoading } = useUsers();
+    const { data: users, isLoading: usersLoading, refetch } = useUsers();
     const { data: clinics, isLoading: clinicsLoading } = useClinics();
     const createUser = useCreateUser();
     const updateUser = useUpdateUser();
     const deleteUser = useDeleteUser();
+    const reactivateUser = useReactivateUser();
+    const changeUserPassword = useChangeUserPassword();
+    const queryClient = useQueryClient();
 
     // Estados
     const [searchTerm, setSearchTerm] = useState('');
@@ -24,6 +30,8 @@ export function UsersPage() {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<any>(null);
     const [isEditing, setIsEditing] = useState(false);
+    const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
+    const [selectedUserForPassword, setSelectedUserForPassword] = useState<any>(null);
 
     // Paginación
     const itemsPerPage = 10;
@@ -79,6 +87,35 @@ export function UsersPage() {
     const handleDelete = (user: any) => {
         setSelectedUser(user);
         setDeleteDialogOpen(true);
+    };
+
+    const handleReactivate = async (user: any) => {
+        try {
+            await reactivateUser.mutateAsync(user.id);
+            refetch();
+        } catch (error) {
+            console.error('Error al reactivar el usuario:', error);
+        }
+    }
+    const handlePhotoUploaded = () => {
+        queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+        refetch();
+    };
+
+    const handleChangePassword = (user: any) => {
+        setSelectedUserForPassword(user);
+        setChangePasswordModalOpen(true);
+    };
+
+    const handleChangePasswordSubmit = async (userId: number, data: { newPassword: string }) => {
+        await changeUserPassword.mutateAsync({
+            userId,
+            data: {
+                newPassword: data.newPassword,
+                confirmPassword: data.newPassword
+            }
+        });
+        refetch();
     };
 
     const handleSubmitForm = async (data: any) => {
@@ -224,6 +261,8 @@ export function UsersPage() {
                         isLoading={usersLoading}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
+                        onReactivate={handleReactivate}
+                        onChangePassword={handleChangePassword}
                         currentUserId={currentUser?.id}
                         pagination={{
                             currentPage,
@@ -244,6 +283,7 @@ export function UsersPage() {
                 isLoading={createUser.isPending || updateUser.isPending}
                 user={selectedUser}
                 clinics={clinics}
+                onPhotoUploaded={handlePhotoUploaded}
             />
 
             {/* Diálogo de confirmación para eliminar */}
@@ -253,6 +293,15 @@ export function UsersPage() {
                 onConfirm={handleConfirmDelete}
                 patientName={selectedUser?.name}
                 isLoading={deleteUser.isPending}
+            />
+
+            <ChangePasswordModal
+                open={changePasswordModalOpen}
+                onOpenChange={setChangePasswordModalOpen}
+                userId={selectedUserForPassword?.id}
+                userName={selectedUserForPassword?.name}
+                onSubmit={handleChangePasswordSubmit}
+                isLoading={changeUserPassword.isPending}
             />
         </div>
     );

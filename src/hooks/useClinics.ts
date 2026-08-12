@@ -72,3 +72,18 @@ export const useDeleteClinic = () => {
         },
     });
 };
+
+export const useReactivateClinic = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: number) => clinicService.reactivate(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: clinicKeys.lists() });
+            toast.success('Clínica reactivada exitosamente');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Error al reactivar clínica');
+        },
+    });
+};

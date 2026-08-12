@@ -1,16 +1,17 @@
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Trash2, Building2, Stethoscope, Phone } from 'lucide-react';
+import { Pencil, Trash2, Building2, Phone, RotateCcw, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTableShadcn } from '@/components/shared/DataTableShadcn';
 import { User } from '@/types/user';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface UserTableProps {
     data: User[];
     isLoading?: boolean;
     onEdit: (user: User) => void;
     onDelete: (user: User) => void;
+    onReactivate?: (user: User) => void;
+    onChangePassword?: (user: User) => void;
     currentUserId?: number;
     pagination?: {
         currentPage: number;
@@ -57,6 +58,8 @@ export function UserTable({
     isLoading,
     onEdit,
     onDelete,
+    onReactivate,
+    onChangePassword,
     currentUserId,
     pagination,
 }: UserTableProps) {
@@ -71,18 +74,19 @@ export function UserTable({
                 const fullImageUrl = photoUrl ? getImageUrl(photoUrl) : '';
 
                 return (
-                    <Avatar className="h-10 w-10 rounded-full border border-gray-200 flex-shrink-0">
-                        {fullImageUrl && (
-                            <AvatarImage
+                    <div className="h-14 w-14 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 flex items-center justify-center">
+                        {fullImageUrl ? (
+                            <img
                                 src={fullImageUrl}
                                 alt={fullName}
-                                className="h-full w-full object-cover rounded-full"
+                                className="h-full w-full object-cover"
                             />
+                        ) : (
+                            <span className="text-xs font-medium text-primary-700">
+                                {getInitials(fullName)}
+                            </span>
                         )}
-                        <AvatarFallback className="h-full w-full rounded-full bg-primary-100 text-primary-700 text-xs font-medium flex items-center justify-center">
-                            {getInitials(fullName)}
-                        </AvatarFallback>
-                    </Avatar>
+                    </div>
                 );
             },
         },
@@ -129,22 +133,6 @@ export function UserTable({
             },
         },
         {
-            accessorKey: 'specialty',
-            header: 'Especialidad',
-            size: 150,
-            cell: ({ row }) => {
-                const specialty = row.getValue('specialty') as string;
-                return specialty ? (
-                    <div className="flex items-center gap-2">
-                        <Stethoscope className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-600">{specialty}</span>
-                    </div>
-                ) : (
-                    <span className="text-gray-400">-</span>
-                );
-            },
-        },
-        {
             accessorKey: 'phoneNumber',
             header: 'Teléfono',
             size: 150,
@@ -166,9 +154,13 @@ export function UserTable({
             size: 100,
             cell: ({ row }) => {
                 const isActive = row.getValue('isActive') as boolean;
-                return (
-                    <Badge variant={isActive ? 'default' : 'secondary'}>
-                        {isActive ? 'Activo' : 'Inactivo'}
+                return isActive ? (
+                    <Badge className="bg-green-100 text-green-700 border border-green-200 rounded-full">
+                        Activo
+                    </Badge>
+                ) : (
+                    <Badge className="bg-red-100 text-red-700 border border-red-200 rounded-full">
+                        Inactivo
                     </Badge>
                 );
             },
@@ -176,10 +168,11 @@ export function UserTable({
         {
             id: 'actions',
             header: 'Acciones',
-            size: 100,
+            size: 120,
             cell: ({ row }) => {
                 const user = row.original;
                 const isCurrentUser = user.id === currentUserId;
+                const isActive = user.isActive !== false;
 
                 return (
                     <div className="flex gap-2">
@@ -195,19 +188,54 @@ export function UserTable({
                         >
                             <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(user);
-                            }}
-                            className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                            title="Eliminar usuario"
-                            disabled={isCurrentUser}
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
+
+                        {/* Botón Cambiar Contraseña - para todos los usuarios */}
+                        {onChangePassword && !isCurrentUser && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onChangePassword(user);
+                                }}
+                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-8 w-8"
+                                title="Cambiar contraseña"
+                            >
+                                <Key className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        {/* Botón Reactivar - solo si está inactivo */}
+                        {!isActive && onReactivate && !isCurrentUser && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onReactivate(user);
+                                }}
+                                className="text-green-600 hover:text-green-800 hover:bg-green-50"
+                                title="Reactivar usuario"
+                            >
+                                <RotateCcw className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        {/* Botón Eliminar/Desactivar - solo si está activo y no es el usuario actual */}
+                        {isActive && !isCurrentUser && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDelete(user);
+                                }}
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                                title="Desactivar usuario"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                 );
             },

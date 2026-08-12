@@ -1,5 +1,5 @@
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Trash2, Building2, Phone, MapPin, Globe } from 'lucide-react';
+import { Pencil, Trash2, Building2, Phone, MapPin, Globe, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTableShadcn } from '@/components/shared/DataTableShadcn';
@@ -10,6 +10,7 @@ interface ClinicTableProps {
     isLoading?: boolean;
     onEdit: (clinic: Clinic) => void;
     onDelete: (clinic: Clinic) => void;
+    onReactivate?: (clinic: Clinic) => void;
     pagination?: {
         currentPage: number;
         totalPages: number;
@@ -24,6 +25,7 @@ export function ClinicTable({
     isLoading,
     onEdit,
     onDelete,
+    onReactivate,
     pagination,
 }: ClinicTableProps) {
     const columns: ColumnDef<Clinic>[] = [
@@ -87,9 +89,13 @@ export function ClinicTable({
             size: 100,
             cell: ({ row }) => {
                 const isActive = row.getValue('isActive') as boolean;
-                return (
-                    <Badge variant={isActive !== false ? 'default' : 'secondary'}>
-                        {isActive !== false ? 'Activo' : 'Inactivo'}
+                return isActive ? (
+                    <Badge className="bg-green-100 text-green-700 border border-green-200 rounded-full">
+                        Activo
+                    </Badge>
+                ) : (
+                    <Badge className="bg-red-100 text-red-700 border border-red-200 rounded-full">
+                        Inactivo
                     </Badge>
                 );
             },
@@ -97,9 +103,11 @@ export function ClinicTable({
         {
             id: 'actions',
             header: 'Acciones',
-            size: 100,
+            size: 120,
             cell: ({ row }) => {
                 const clinic = row.original;
+                const isActive = clinic.isActive !== false;
+
                 return (
                     <div className="flex gap-2">
                         <Button
@@ -114,18 +122,38 @@ export function ClinicTable({
                         >
                             <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(clinic);
-                            }}
-                            className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                            title="Eliminar clínica"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
+
+                        {/* Botón Reactivar - solo si está inactiva */}
+                        {!isActive && onReactivate && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onReactivate(clinic);
+                                }}
+                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                title="Reactivar clínica"
+                            >
+                                <RotateCcw className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        {/* Botón Eliminar - solo si está activa */}
+                        {isActive && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDelete(clinic);
+                                }}
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                                title="Eliminar clínica"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                 );
             },

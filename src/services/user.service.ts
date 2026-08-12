@@ -29,6 +29,11 @@ export interface ChangePasswordDto {
     confirmPassword: string;
 }
 
+export interface AdminChangePasswordDto {
+    newPassword: string;
+    confirmPassword?: string;
+}
+
 export const userService = {
     getProfile: async (): Promise<UserProfile> => {
         const response = await api.get('/users/profile');
@@ -42,6 +47,11 @@ export const userService = {
 
     changePassword: async (data: ChangePasswordDto): Promise<{ message: string }> => {
         const response = await api.post('/users/change-password', data);
+        return response.data;
+    },
+
+    changePasswordByAdmin: async (userId: number, data: AdminChangePasswordDto): Promise<{ message: string }> => {
+        const response = await api.post(`/users/${userId}/change-password`, data);
         return response.data;
     },
 
@@ -69,7 +79,16 @@ export const userService = {
         const response = await api.delete(`/users/${id}`);
         return response.data;
     },
-    
+
+    reactivateUser: async (id: number): Promise<User> => {
+        const response = await api.patch(`/users/${id}/reactivate`);
+        return response.data;
+    },
+
+    hardDeleteUser: async (id: number): Promise<void> => {
+        await api.delete(`/users/${id}/hard`);
+    },
+
     getClinics: async (): Promise<Clinic[]> => {
         const response = await api.get('/clinic');
         return response.data;

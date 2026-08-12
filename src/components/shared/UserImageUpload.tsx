@@ -45,7 +45,6 @@ export function UserImageUpload({
     useEffect(() => {
         if (currentImage && currentImage !== '' && !isNewUser) {
             const fullUrl = getImageUrl(currentImage);
-            console.log('🖼️ Cargando foto del usuario:', fullUrl);
             setPreview(fullUrl);
             setImageError(false);
         } else if (!currentImage || currentImage === '') {
@@ -94,8 +93,6 @@ export function UserImageUpload({
 
         try {
             const url = `/users/${userId}/photo`;
-            console.log('📤 Subiendo foto a:', url);
-
             const response = await api.post(url, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });

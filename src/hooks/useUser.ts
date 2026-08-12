@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { userService, UpdateProfileDto, ChangePasswordDto } from '@/services/user.service';
+import { userService, UpdateProfileDto, ChangePasswordDto, AdminChangePasswordDto } from '@/services/user.service';
 import { toast } from 'sonner';
 import { CreateUserDto, UpdateUserDto } from '@/types/user';
 
@@ -44,6 +44,21 @@ export const useChangePassword = () => {
         },
         onError: (error: any) => {
             toast.error(error.response?.data?.message || 'Error al cambiar contraseña');
+        },
+    });
+};
+
+export const useChangeUserPassword = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ userId, data }: { userId: number; data: AdminChangePasswordDto }) =>
+            userService.changePasswordByAdmin(userId, data),
+        onSuccess: () => {
+            toast.success('Contraseña cambiada exitosamente');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Error al cambiar la contraseña');
         },
     });
 };
@@ -100,7 +115,37 @@ export const useDeleteUser = () => {
         mutationFn: (id: number) => userService.deleteUser(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: userKeys.lists() });
-            toast.success('Usuario eliminado exitosamente');
+            toast.success('Usuario Inactivado exitosamente');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Error al inactivar usuario');
+        },
+    });
+};
+
+export const useReactivateUser = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: number) => userService.reactivateUser(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+            toast.success('Usuario Reactivado exitosamente');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Error al reactivar usuario');
+        },
+    });
+};
+
+export const useHardDeleteUser = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: number) => userService.hardDeleteUser(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: userKeys.lists() });
+            toast.success('Usuario Eliminado exitosamente');
         },
         onError: (error: any) => {
             toast.error(error.response?.data?.message || 'Error al eliminar usuario');
