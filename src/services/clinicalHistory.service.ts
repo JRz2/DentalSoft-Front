@@ -4,7 +4,7 @@ import { ClinicalHistory, Treatment, TreatmentSession, CreateTreatmentDto, Creat
 export const clinicalHistoryService = {
     // Obtener historia clínica por paciente
     getByPatientId: async (patientId: number): Promise<ClinicalHistory> => {
-        const response = await api.get(`/clinical-history/${patientId}`);
+        const response = await api.get(`/clinical-history/patient/${patientId}`);
         return response.data;
     },
 
@@ -44,7 +44,7 @@ export const clinicalHistoryService = {
     },
 
     // Crear sesión de tratamiento
-    createSession: async (data: CreateTreatmentSessionDto): Promise<TreatmentSession> => {     
+    createSession: async (data: CreateTreatmentSessionDto): Promise<TreatmentSession> => {
         try {
             const response = await api.post('/treatment-session', data);
             return response.data;

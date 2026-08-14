@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { UserImageUpload } from '@/components/shared/UserImageUpload';
 import { Clinic } from '@/types/user';
 import { useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 
 const userSchema = z.object({
     name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
@@ -143,10 +144,12 @@ export function UserForm({
                 <div className="space-y-2">
                     <Label htmlFor="role">Rol *</Label>
                     <Select
-                        onValueChange={(value) => setValue('role', value as any)}
-                        defaultValue={defaultValues?.role || 'DOCTOR'}
+                        value={selectedRole || ''}
+                        onValueChange={(value) => {
+                            setValue('role', value as any, { shouldValidate: true });
+                        }}
                     >
-                        <SelectTrigger>
+                        <SelectTrigger className={errors.role ? 'border-red-500' : ''}>
                             <SelectValue placeholder="Seleccionar rol" />
                         </SelectTrigger>
                         <SelectContent>
@@ -157,7 +160,10 @@ export function UserForm({
                         </SelectContent>
                     </Select>
                     {errors.role && (
-                        <p className="text-sm text-red-500">{errors.role.message}</p>
+                        <div className="flex items-center gap-2 p-2.5 mt-1.5 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                            <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                            <span className="font-medium">Selecciona un rol para el usuario</span>
+                        </div>
                     )}
                 </div>
 
