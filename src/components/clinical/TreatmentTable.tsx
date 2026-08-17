@@ -62,7 +62,7 @@ export function TreatmentTable({
     patientId,
     pagination,
 }: TreatmentTableProps) {
-    const navigate = useNavigate(); // ← Agregar useNavigate
+    const navigate = useNavigate();
 
     const formatDate = (dateString: string) => {
         if (!dateString) return '-';

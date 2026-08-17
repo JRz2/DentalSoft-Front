@@ -9,6 +9,12 @@ export interface Treatment {
     status: 'PLANNED' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'CANCELLED';
     startDate?: string;
     endDate?: string;
+    totalCost?: number;
+    discount?: number;
+    finalAmount?: number;
+    amountPaid?: number;
+    remainingBalance?: number;
+    paymentStatus?: 'UNPAID' | 'PARTIAL' | 'PAID' | 'CANCELLED';
     createdAt?: string;
     updatedAt?: string;
     patient?: {
@@ -23,6 +29,10 @@ export interface CreateTreatmentDto {
     description?: string;
     type: Treatment['type'];
     estimatedSessions: number;
+    totalCost: number;
+    paymentAmount?: number;     
+    paymentMethod?: 'CASH' | 'CARD' | 'TRANSFER' | 'CHECK' | 'OTHER'; 
+    paymentReference?: string;
 }
 
 export interface UpdateTreatmentDto {

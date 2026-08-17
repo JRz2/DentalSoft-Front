@@ -80,4 +80,10 @@ export const clinicalHistoryService = {
         const response = await api.get(`/treatment/${id}`);
         return response.data;
     },
+
+    // Obtener pagos por tratamiento
+    getPaymentStatus: async (treatmentId: number): Promise<any> => {
+        const response = await api.get(`/treatment/${treatmentId}/payment-status`);
+        return response.data;
+    },
 };

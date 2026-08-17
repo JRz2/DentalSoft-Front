@@ -6,8 +6,10 @@ import { TreatmentTable } from '@/components/treatments/TreatmentTable';
 import { TreatmentForm } from '@/components/treatments/TreatmentForm';
 import { SearchBar } from '@/components/shared/SearchBar';
 import { Plus, Activity, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export function TreatmentsPage() {
+    const navigate = useNavigate();
     const { data: treatments, isLoading, refetch } = useTreatments();
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -38,9 +40,14 @@ export function TreatmentsPage() {
         setCurrentPage(1);
     };
 
-    const handleView = (treatment: any) => {
-        console.log('Ver tratamiento:', treatment);
-        // TODO: Implementar vista de detalles
+    // ✅ Función para ver detalles del tratamiento (navegar a sesiones)
+    const handleViewDetail = (treatment: any) => {
+        // Si el tratamiento tiene patientId, navegar a sesiones
+        if (treatment.patient?.id) {
+            navigate(`/treatment-sessions/${treatment.id}/patient/${treatment.patient.id}`);
+        } else {
+            console.log('Ver tratamiento:', treatment);
+        }
     };
 
     const handleEdit = (treatment: any) => {
@@ -152,9 +159,11 @@ export function TreatmentsPage() {
                     <TreatmentTable
                         data={paginatedTreatments}
                         isLoading={isLoading}
-                        onView={handleView}
+                        onViewDetail={handleViewDetail}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
+                        // ✅ Pasar patientId solo si existe en el tratamiento
+                        patientId={paginatedTreatments[0]?.patient?.id}
                         pagination={{
                             currentPage,
                             totalPages,

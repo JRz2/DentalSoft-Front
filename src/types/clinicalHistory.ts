@@ -7,18 +7,44 @@ export interface ClinicalHistory {
     observations?: string;
     createdAt?: string;
     updatedAt?: string;
+    patient?: {
+        id: number;
+        fullName: string;
+        medicalRecordNum: string;
+    };
 }
 
-export  interface Treatment {
+export interface Treatment {
     id: number;
+    clinicId: number;
+    clinicalHistoryId: number;
     name: string;
     description?: string;
     type: 'DIAGNOSIS' | 'PREVENTIVE' | 'RESTORATIVE' | 'ENDODONTIC' | 'PERIODONTAL' | 'ORTHODONTIC' | 'SURGICAL' | 'PROSTHETIC' | 'AESTHETIC' | 'MAINTENANCE';
     estimatedSessions: number;
     status: 'PLANNED' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'CANCELLED';
-    clinicalHistoryId: number;
+    startDate?: string;
+    endDate?: string;
+    totalCost?: number;
+    discount?: number;
+    finalAmount?: number;
+    amountPaid?: number;
+    remainingBalance?: number;
+    paymentStatus?: 'UNPAID' | 'PARTIAL' | 'PAID' | 'CANCELLED';
+    patient?: {
+        id: number;
+        fullName: string;
+        medicalRecordNum: string;
+        email?: string;
+        phoneNumber?: string;
+        birthDate?: string;
+        address?: string;
+        createdAt?: string;
+    };
     createdAt?: string;
     updatedAt?: string;
+    sessions?: TreatmentSession[];
+    payments?: any[];
 }
 
 export interface TreatmentSession {
@@ -28,10 +54,10 @@ export interface TreatmentSession {
     description: string;
     notes?: string;
     procedures?: any;
-    sessionDate: string;
-    appointmentId?: number;
-    isCompleted: boolean;
-    date?: string;
+    appointmentId?: number | null;
+    sessionDate?: string;
+    isCompleted?: boolean;
+    completedAt?: string;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -41,7 +67,10 @@ export interface CreateTreatmentDto {
     description?: string;
     type: Treatment['type'];
     estimatedSessions: number;
-    status?: Treatment['status'];
+    totalCost?: number;
+    paymentAmount?: number;
+    paymentMethod?: string;
+    paymentReference?: string;
 }
 
 export interface CreateTreatmentSessionDto {

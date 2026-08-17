@@ -1,18 +1,24 @@
 import { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, Trash2, Play, Pause, CheckCircle, XCircle, User } from 'lucide-react';
+import { Eye, Pencil, Trash2, Play, Pause, CheckCircle, XCircle, User, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTableShadcn } from '@/components/shared/DataTableShadcn';
 import { Treatment } from '@/types/treatment';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 interface TreatmentTableProps {
     data: Treatment[];
     isLoading?: boolean;
-    onView: (treatment: Treatment) => void;
-    onEdit: (treatment: Treatment) => void;
-    onDelete: (treatment: Treatment) => void;
+    onViewDetail?: (treatment: Treatment) => void;
+    onEdit?: (treatment: Treatment) => void;
+    onDelete?: (treatment: Treatment) => void;
+    onStart?: (treatment: Treatment) => void;
+    onPause?: (treatment: Treatment) => void;
+    onComplete?: (treatment: Treatment) => void;
+    onCancel?: (treatment: Treatment) => void;
+    patientId?: number;
     pagination?: {
         currentPage: number;
         totalPages: number;
@@ -43,38 +49,53 @@ const typeLabels: Record<string, string> = {
     MAINTENANCE: 'Mantenimiento',
 };
 
-const formatDate = (dateString?: string) => {
-    if (!dateString) return '-';
-    try {
-        return format(new Date(dateString), 'dd/MM/yyyy', { locale: es });
-    } catch {
-        return '-';
-    }
-};
-
 export function TreatmentTable({
     data,
     isLoading,
-    onView,
+    onViewDetail,
     onEdit,
     onDelete,
+    onStart,
+    onPause,
+    onComplete,
+    onCancel,
+    patientId,
     pagination,
 }: TreatmentTableProps) {
+    const navigate = useNavigate();
+
+    const formatDate = (dateString: string) => {
+        if (!dateString) return '-';
+        try {
+            return format(new Date(dateString), 'dd/MM/yyyy', { locale: es });
+        } catch {
+            return '-';
+        }
+    };
+
     const columns: ColumnDef<Treatment>[] = [
         {
             accessorKey: 'name',
             header: 'Tratamiento',
-            size: 200,
-            cell: ({ row }) => (
-                <div>
-                    <div className="font-medium text-gray-900">{row.getValue('name')}</div>
-                    {row.original.description && (
-                        <div className="text-sm text-gray-500 truncate max-w-[200px]">
-                            {row.original.description}
+            size: 250,
+            cell: ({ row }) => {
+                const treatment = row.original;
+                const description = treatment.description;
+                const hasDescription = description && description.trim().length > 0;
+
+                return (
+                    <div>
+                        <div className="font-medium text-gray-900 truncate max-w-[200px]" title={treatment.name}>
+                            {treatment.name}
                         </div>
-                    )}
-                </div>
-            ),
+                        {hasDescription && (
+                            <div className="text-sm text-gray-500 truncate max-w-[200px]" title={description}>
+                                {description.length > 50 ? `${description.substring(0, 50)}...` : description}
+                            </div>
+                        )}
+                    </div>
+                );
+            },
         },
         {
             accessorKey: 'patient',
@@ -96,7 +117,7 @@ export function TreatmentTable({
         {
             accessorKey: 'type',
             header: 'Tipo',
-            size: 120,
+            size: 100,
             cell: ({ row }) => (
                 <Badge variant="outline" className="bg-gray-50">
                     {typeLabels[row.original.type] || row.original.type}
@@ -106,15 +127,14 @@ export function TreatmentTable({
         {
             accessorKey: 'status',
             header: 'Estado',
-            size: 130,
+            size: 110,
             cell: ({ row }) => {
                 const status = row.original.status;
-                const config = statusConfig[status] || { label: status, className: 'bg-gray-100 text-gray-700', icon: null };
-                const Icon = config.icon;
+                const StatusIcon = statusConfig[status]?.icon;
                 return (
-                    <Badge className={config.className}>
-                        {Icon && <Icon className="h-3 w-3 mr-1" />}
-                        {config.label}
+                    <Badge className={statusConfig[status]?.className}>
+                        {StatusIcon && <StatusIcon className="h-3 w-3 mr-1" />}
+                        {statusConfig[status]?.label}
                     </Badge>
                 );
             },
@@ -130,19 +150,40 @@ export function TreatmentTable({
             ),
         },
         {
+            accessorKey: 'totalCost',
+            header: 'Costo',
+            size: 100,
+            cell: ({ row }) => {
+                const cost = row.original.totalCost;
+                const numericCost = typeof cost === 'number' ? cost : parseFloat(cost as any);
+                return numericCost && !isNaN(numericCost) ? (
+                    <div className="flex items-center gap-1">
+                        <Coins className="h-3 w-3 text-gray-400" />
+                        <span className="text-gray-600">Bs {numericCost.toFixed(2)}</span>
+                    </div>
+                ) : (
+                    <span className="text-gray-400">-</span>
+                );
+            },
+        },
+        {
             accessorKey: 'startDate',
             header: 'Inicio',
             size: 100,
             cell: ({ row }) => (
-                <div className="text-gray-600 text-sm">{formatDate(row.original.startDate)}</div>
+                <div className="text-gray-600 text-sm">
+                    {formatDate(row.original.startDate || '')}
+                </div>
             ),
         },
         {
             id: 'actions',
             header: 'Acciones',
-            size: 120,
+            size: 150,
             cell: ({ row }) => {
                 const treatment = row.original;
+                const status = treatment.status;
+
                 return (
                     <div className="flex gap-1">
                         <Button
@@ -150,37 +191,107 @@ export function TreatmentTable({
                             size="icon"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                onView(treatment);
+                                if (patientId) {
+                                    navigate(`/treatment-sessions/${treatment.id}/patient/${patientId}`);
+                                } else if (onViewDetail) {
+                                    onViewDetail(treatment);
+                                }
                             }}
                             className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-8 w-8"
-                            title="Ver detalles"
+                            title="Ver sesiones"
                         >
                             <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onEdit(treatment);
-                            }}
-                            className="text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50 h-8 w-8"
-                            title="Editar"
-                        >
-                            <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(treatment);
-                            }}
-                            className="text-red-600 hover:text-red-800 hover:bg-red-50 h-8 w-8"
-                            title="Eliminar/Cancelar"
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
+
+                        {onEdit && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(treatment);
+                                }}
+                                className="text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50 h-8 w-8"
+                                title="Editar"
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        {status === 'PLANNED' && onStart && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onStart(treatment);
+                                }}
+                                className="text-green-600 hover:text-green-800 hover:bg-green-50 h-8 w-8"
+                                title="Iniciar tratamiento"
+                            >
+                                <Play className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        {status === 'IN_PROGRESS' && onPause && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onPause(treatment);
+                                }}
+                                className="text-orange-600 hover:text-orange-800 hover:bg-orange-50 h-8 w-8"
+                                title="Pausar tratamiento"
+                            >
+                                <Pause className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        {status === 'IN_PROGRESS' && onComplete && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onComplete(treatment);
+                                }}
+                                className="text-green-600 hover:text-green-800 hover:bg-green-50 h-8 w-8"
+                                title="Completar tratamiento"
+                            >
+                                <CheckCircle className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        {(status === 'PLANNED' || status === 'ON_HOLD') && onCancel && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onCancel(treatment);
+                                }}
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50 h-8 w-8"
+                                title="Cancelar tratamiento"
+                            >
+                                <XCircle className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        {onDelete && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDelete(treatment);
+                                }}
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50 h-8 w-8"
+                                title="Eliminar"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                 );
             },
@@ -192,6 +303,13 @@ export function TreatmentTable({
             columns={columns}
             data={data}
             isLoading={isLoading}
+            onRowClick={(treatment) => {
+                if (patientId) {
+                    navigate(`/treatment-sessions/${treatment.id}/patient/${patientId}`);
+                } else if (onViewDetail) {
+                    onViewDetail(treatment);
+                }
+            }}
             pagination={pagination}
         />
     );
