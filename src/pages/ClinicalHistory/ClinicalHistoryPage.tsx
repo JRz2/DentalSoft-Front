@@ -7,17 +7,17 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from '@/components/ui/select';
 import { usePatient } from '@/hooks/usePatients';
-import { useClinicalHistory, useTreatments } from '@/hooks/useClinicalHistory';
+import { useClinicalHistory, useCompleteTreatment, useTreatments } from '@/hooks/useClinicalHistory';
 import { TreatmentForm } from '@/components/clinical/TreatmentForm';
 import { ClinicalInfoForm } from '@/components/clinical/ClinicalInfoForm';
 import { TreatmentTable } from '@/components/clinical/TreatmentTable';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { CompleteTreatmentDialog } from '@/components/treatments/CompleteTreatmentDialog';
 
 // Opciones para filtros
 const statusOptions = [
@@ -47,6 +47,7 @@ export function ClinicalHistoryPage() {
     const { id } = useParams<{ id: string }>();
     const patientId = parseInt(id!);
     const navigate = useNavigate();
+    const completeTreatment = useCompleteTreatment();
 
     // Estados
     const [showTreatmentForm, setShowTreatmentForm] = useState(false);
@@ -56,6 +57,10 @@ export function ClinicalHistoryPage() {
     const [typeFilter, setTypeFilter] = useState('all');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+    const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+    const [selectedTreatment, setSelectedTreatment] = useState<any>(null);
+    const [showEditTreatmentForm, setShowEditTreatmentForm] = useState(false);
+    const [treatmentToEdit, setTreatmentToEdit] = useState<any>(null);
 
     // Obtener datos
     const { data: patient, isLoading: patientLoading } = usePatient(patientId);
@@ -80,6 +85,29 @@ export function ClinicalHistoryPage() {
         currentPage * itemsPerPage
     );
 
+    const handleEdit = (treatment: any) => {
+        setTreatmentToEdit(treatment);
+        setShowEditTreatmentForm(true);
+    };
+
+    const handleCompleteClick = (treatment: any) => {
+        setSelectedTreatment(treatment);
+        setCompleteDialogOpen(true);
+    };
+
+    const handleConfirmComplete = async () => {
+        if (selectedTreatment) {
+            try {
+                await completeTreatment.mutateAsync(selectedTreatment.id);
+                setCompleteDialogOpen(false);
+                setSelectedTreatment(null);
+                refetchTreatments();
+            } catch (error) {
+                console.error('Error al completar tratamiento:', error);
+            }
+        }
+    };
+
     // Redirigir si no hay paciente
     useEffect(() => {
         if (!patientLoading && !patient) {
@@ -100,6 +128,19 @@ export function ClinicalHistoryPage() {
             .slice(0, 2)
             .join('')
             .toUpperCase();
+    };
+
+    const getImageUrl = (path: string) => {
+        if (!path) return '';
+        if (path.startsWith('http://') || path.startsWith('https://')) {
+            return path;
+        }
+        if (path.startsWith('/')) {
+            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+            const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
+            return `${cleanBaseUrl}${path}`;
+        }
+        return path;
     };
 
     if (patientLoading || historyLoading) {
@@ -142,11 +183,27 @@ export function ClinicalHistoryPage() {
                     <div className="flex flex-col md:flex-row gap-6">
                         {/* Avatar */}
                         <div className="flex flex-col items-center gap-3">
-                            <Avatar className="h-24 w-24 border-4 border-primary-100">
-                                <AvatarFallback className="bg-primary-500 text-white text-2xl">
+                            <div
+                                className="h-24 w-24 rounded-full border-4 border-primary-100 overflow-hidden bg-primary-500 flex items-center justify-center"
+                                style={{ backgroundColor: '#fafafa' }}
+                            >
+                                {patient?.photoUrl && patient.photoUrl.trim() !== '' ? (
+                                    <img
+                                        src={getImageUrl(patient.photoUrl)}
+                                        alt={patient.fullName}
+                                        className="h-full w-full object-cover"
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                        }}
+                                    />
+                                ) : null}
+                                <span
+                                    className="text-black text-2xl font-medium"
+                                    style={{ display: patient?.photoUrl && patient.photoUrl.trim() !== '' ? 'none' : 'block' }}
+                                >
                                     {getInitials(patient.fullName)}
-                                </AvatarFallback>
-                            </Avatar>
+                                </span>
+                            </div>
                             <Badge variant={patient.IsActive !== false ? 'default' : 'secondary'}>
                                 {patient.IsActive !== false ? 'Activo' : 'Inactivo'}
                             </Badge>
@@ -293,15 +350,8 @@ export function ClinicalHistoryPage() {
                             data={paginatedTreatments}
                             isLoading={treatmentsLoading}
                             patientId={patientId}
-                            onStart={(treatment) => {
-                                console.log('Iniciar tratamiento:', treatment);
-                            }}
-                            onPause={(treatment) => {
-                                console.log('Pausar tratamiento:', treatment);
-                            }}
-                            onComplete={(treatment) => {
-                                console.log('Completar tratamiento:', treatment);
-                            }}
+                            onComplete={handleCompleteClick}
+                            onEdit={handleEdit}
                             onCancel={(treatment) => {
                                 console.log('Cancelar tratamiento:', treatment);
                             }}
@@ -337,6 +387,29 @@ export function ClinicalHistoryPage() {
                         onSuccess={() => {
                             setShowClinicalInfoForm(false);
                             refetchHistory();
+                        }}
+                    />
+                )}
+
+                {completeDialogOpen && (
+                    <CompleteTreatmentDialog
+                        open={completeDialogOpen}
+                        onOpenChange={setCompleteDialogOpen}
+                        treatmentName={selectedTreatment?.name || ''}
+                        onConfirm={handleConfirmComplete}
+                        isLoading={completeTreatment.isPending}
+                    />
+                )}
+
+                {showEditTreatmentForm && (
+                    <TreatmentForm
+                        open={showEditTreatmentForm}
+                        onOpenChange={setShowEditTreatmentForm}
+                        treatmentToEdit={treatmentToEdit}
+                        onSuccess={() => {
+                            setShowEditTreatmentForm(false);
+                            setTreatmentToEdit(null);
+                            refetchTreatments();
                         }}
                     />
                 )}

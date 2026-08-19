@@ -38,6 +38,12 @@ export const clinicalHistoryService = {
         return response.data;
     },
 
+    // Completar tratamiento
+    completeTreatment: async (id: number): Promise<Treatment> => {
+        const response = await api.patch(`/treatment/${id}/complete`);
+        return response.data;
+    },
+
     // Cancelar tratamiento
     cancelTreatment: async (id: number): Promise<void> => {
         await api.delete(`/treatment/${id}`);

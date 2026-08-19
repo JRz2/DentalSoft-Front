@@ -55,10 +55,7 @@ export function TreatmentTable({
     onViewDetail,
     onEdit,
     onDelete,
-    onStart,
-    onPause,
     onComplete,
-    onCancel,
     patientId,
     pagination,
 }: TreatmentTableProps) {
@@ -82,7 +79,7 @@ export function TreatmentTable({
                 const treatment = row.original;
                 const description = treatment.description;
                 const hasDescription = description && description.trim().length > 0;
-                
+
                 return (
                     <div>
                         <div className="font-medium text-gray-900 truncate max-w-[200px]" title={treatment.name}>
@@ -148,10 +145,13 @@ export function TreatmentTable({
             size: 150,
             cell: ({ row }) => {
                 const treatment = row.original;
-                const status = treatment.status;
+                const isCompleted = treatment.status === 'COMPLETED';
+                const isCancelled = treatment.status === 'CANCELLED';
+                const canComplete = !isCompleted && !isCancelled;
 
                 return (
                     <div className="flex gap-1">
+                        {/* Ver - Siempre visible */}
                         <Button
                             variant="ghost"
                             size="icon"
@@ -169,6 +169,7 @@ export function TreatmentTable({
                             <Eye className="h-4 w-4" />
                         </Button>
 
+                        {/* Editar - Siempre visible */}
                         {onEdit && (
                             <Button
                                 variant="ghost"
@@ -184,37 +185,8 @@ export function TreatmentTable({
                             </Button>
                         )}
 
-                        {status === 'PLANNED' && onStart && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onStart(treatment);
-                                }}
-                                className="text-green-600 hover:text-green-800 hover:bg-green-50 h-8 w-8"
-                                title="Iniciar tratamiento"
-                            >
-                                <Play className="h-4 w-4" />
-                            </Button>
-                        )}
-
-                        {status === 'IN_PROGRESS' && onPause && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onPause(treatment);
-                                }}
-                                className="text-orange-600 hover:text-orange-800 hover:bg-orange-50 h-8 w-8"
-                                title="Pausar tratamiento"
-                            >
-                                <Pause className="h-4 w-4" />
-                            </Button>
-                        )}
-
-                        {status === 'IN_PROGRESS' && onComplete && (
+                        {/* Completar - Solo si no está completado ni cancelado */}
+                        {canComplete && onComplete && (
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -229,21 +201,7 @@ export function TreatmentTable({
                             </Button>
                         )}
 
-                        {(status === 'PLANNED' || status === 'ON_HOLD') && onCancel && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onCancel(treatment);
-                                }}
-                                className="text-red-600 hover:text-red-800 hover:bg-red-50 h-8 w-8"
-                                title="Cancelar tratamiento"
-                            >
-                                <XCircle className="h-4 w-4" />
-                            </Button>
-                        )}
-
+                        {/* Eliminar - Siempre visible */}
                         {onDelete && (
                             <Button
                                 variant="ghost"

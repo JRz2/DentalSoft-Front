@@ -53,10 +53,26 @@ export const useUpdateTreatment = () => {
             clinicalHistoryService.updateTreatment(id, data),
         onSuccess: (_, _variables) => {
             queryClient.invalidateQueries({ queryKey: clinicalHistoryKeys.all });
-            toast.success('Tratamiento actualizado');
+            toast.success('Tratamiento actualizado exitosamente');
         },
         onError: () => {
             toast.error('Error al actualizar tratamiento');
+        },
+    });
+};
+
+// Completar tratamiento
+export const useCompleteTreatment = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: number) => clinicalHistoryService.completeTreatment(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['treatments'] });
+            toast.success('Tratamiento completado exitosamente');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Error al completar tratamiento');
         },
     });
 };
