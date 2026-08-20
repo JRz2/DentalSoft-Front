@@ -74,13 +74,16 @@ export function TreatmentSessionsPage() {
     const [paymentStatus, setPaymentStatus] = useState<any>(null);
     const [showSessionForm, setShowSessionForm] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-
+    const [refreshKey, setRefreshKey] = useState(0);
     const { data: patient, isLoading: patientLoading } = usePatient(parseInt(patientId || '0'));
 
     useEffect(() => {
         loadData();
-    }, [treatmentId]);
+    }, [treatmentId, refreshKey]);
 
+    const handlePaymentRegistered = () => {
+        setRefreshKey(prev => prev + 1);
+    };
     const loadData = async () => {
         if (!treatmentId) return;
         setIsLoading(true);
@@ -126,7 +129,7 @@ export function TreatmentSessionsPage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <div className="max-w-6xl mx-auto p-4 lg:p-6 space-y-6">
+            <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6">
 
                 {/* Título del tratamiento */}
                 <div className="mb-6">
@@ -225,7 +228,12 @@ export function TreatmentSessionsPage() {
 
                 {/* Historial de pagos */}
                 {paymentStatus && paymentStatus.payments?.length > 0 && (
-                    <PaymentHistory payments={paymentStatus.payments || []} />
+                    <PaymentHistory
+                        payments={paymentStatus.payments || []}
+                        totalCost={treatment?.totalCost || 0}
+                        treatmentId={treatment?.id || 0}
+                        onPaymentRegistered={handlePaymentRegistered}
+                    />
                 )}
 
                 {/* Lista de sesiones */}

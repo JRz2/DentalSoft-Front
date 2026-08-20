@@ -36,4 +36,14 @@ export const treatmentService = {
     cancel: async (id: number): Promise<void> => {
         await api.delete(`/treatment/${id}`);
     },
+
+    registerPayment: async (treatmentId: number, data: {
+        amount: number;
+        paymentMethod: string;
+        reference?: string;
+        notes?: string;
+    }): Promise<any> => {
+        const response = await api.post(`/treatment/${treatmentId}/payment`, data);
+        return response.data;
+    },
 };
