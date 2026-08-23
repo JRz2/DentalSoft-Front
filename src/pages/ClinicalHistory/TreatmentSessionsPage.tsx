@@ -13,6 +13,9 @@ import { Treatment, TreatmentSession } from '@/types/clinicalHistory';
 import { clinicalHistoryService } from '@/services/clinicalHistory.service';
 import { usePatient } from '@/hooks/usePatients';
 import { toast } from 'sonner';
+import { ImageCarousel } from '@/components/treatments/ImageGallery';
+import { UploadImageModal } from '@/components/treatments/UploadImageModal';
+import { useMediaByTreatment, useDeleteMedia } from '@/hooks/useMedia';
 
 const typeLabels: Record<string, string> = {
     DIAGNOSIS: 'Diagnóstico',
@@ -75,7 +78,13 @@ export function TreatmentSessionsPage() {
     const [showSessionForm, setShowSessionForm] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [showUploadModal, setShowUploadModal] = useState(false);
+
     const { data: patient, isLoading: patientLoading } = usePatient(parseInt(patientId || '0'));
+    const { data: images, isLoading: imagesLoading } = useMediaByTreatment(
+        treatment ? treatment.id : 0
+    );
+    const deleteMedia = useDeleteMedia(treatment ? treatment.id : 0);
 
     useEffect(() => {
         loadData();
@@ -223,6 +232,17 @@ export function TreatmentSessionsPage() {
                     </div>
                 </div>
 
+                {/* Galería de imágenes */}
+                {treatment && (
+                    <ImageCarousel
+                        images={images || []}
+                        isLoading={imagesLoading}
+                        treatmentName={treatment.name}
+                        onUpload={() => setShowUploadModal(true)}
+                        onDelete={(id) => deleteMedia.mutateAsync(id)}
+                    />
+                )}
+
                 {/* Resumen de pagos */}
                 {paymentStatus && <PaymentSummary paymentStatus={paymentStatus} />}
 
@@ -282,6 +302,19 @@ export function TreatmentSessionsPage() {
                 nextSessionNumber={nextSessionNumber}
                 onSuccess={handleSessionAdded}
             />
+
+            {/* Modal para subir imágenes */}
+            {treatment && (
+                <UploadImageModal
+                    open={showUploadModal}
+                    onOpenChange={setShowUploadModal}
+                    treatmentId={treatment.id}
+                    sessions={sessions.map(s => ({ id: s.id, sessionNumber: s.sessionNumber }))}
+                    onSuccess={() => {
+                        setShowUploadModal(false);
+                    }}
+                />
+            )}
         </div>
     );
 }
