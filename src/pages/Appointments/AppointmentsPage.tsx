@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { AppointmentCalendar } from '@/components/appointments/AppointmentCalendar';
 import { AppointmentList } from '@/components/appointments/AppointmentList';
@@ -7,15 +6,13 @@ import { AppointmentFilters } from '@/components/appointments/AppointmentFilters
 import { AppointmentForm } from '@/components/appointments/AppointmentForm';
 import { AppointmentDetail } from '@/components/appointments/AppointmentDetail';
 import { useAppointments } from '@/hooks/useAppointments';
-import { useDoctors } from '@/hooks/useDoctors';
 import { Appointment, AppointmentStatus } from '@/types/appointment';
 import { CalendarIcon, Plus, RefreshCw } from 'lucide-react';
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'sonner';
 
 export function AppointmentsPage() {
-    const navigate = useNavigate();
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [filters, setFilters] = useState<{
         doctorId?: number;
@@ -28,20 +25,21 @@ export function AppointmentsPage() {
     const [appointmentToEdit, setAppointmentToEdit] = useState<Appointment | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
 
-    const { data: doctorsData } = useDoctors();
-    const doctors = doctorsData || [];
-
     const { data: appointmentsData, isLoading, refetch } = useAppointments({
         page: 1,
-        limit: 50,
-        startDate: format(startOfDay(selectedDate), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
-        endDate: format(endOfDay(selectedDate), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
+        limit: 100,
+        startDate: format(startOfMonth(selectedDate), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
+        endDate: format(endOfMonth(selectedDate), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
         doctorId: filters.doctorId,
         status: filters.status,
     });
 
     const appointments = appointmentsData?.data || [];
+    const allAppointments = appointmentsData?.data || [];
 
+    const dayAppointments = allAppointments.filter(appointment =>
+        isSameDay(new Date(appointment.appointmentDate), selectedDate)
+    );
     const handleDateSelect = (date: Date) => {
         setSelectedDate(date);
         setFilters(prev => ({ ...prev, date: format(date, 'yyyy-MM-dd') }));
@@ -79,11 +77,6 @@ export function AppointmentsPage() {
         setShowForm(false);
         setAppointmentToEdit(null);
         handleRefresh();
-    };
-
-    const handleDetailClose = () => {
-        setShowDetail(false);
-        setSelectedAppointment(null);
     };
 
     const hasFilters = !!(filters.doctorId || filters.status || filters.date);
@@ -127,7 +120,6 @@ export function AppointmentsPage() {
                 {/* Filtros */}
                 <AppointmentFilters
                     onFilterChange={handleFilterChange}
-                    doctors={doctors}
                     onClearFilters={handleClearFilters}
                     hasFilters={hasFilters}
                 />
@@ -147,7 +139,7 @@ export function AppointmentsPage() {
                         Citas del {format(selectedDate, "EEEE d 'de' MMMM 'de' yyyy", { locale: es })}
                     </h2>
                     <AppointmentList
-                        appointments={appointments}
+                        appointments={dayAppointments}
                         isLoading={isLoading}
                         onViewAppointment={handleViewAppointment}
                         onEditAppointment={handleEditAppointment}

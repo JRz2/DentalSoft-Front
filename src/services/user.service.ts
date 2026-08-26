@@ -93,4 +93,19 @@ export const userService = {
         const response = await api.get('/clinic');
         return response.data;
     },
+
+    getStaffByClinic: async (params?: {
+        page?: number;
+        limit?: number;
+        search?: string;
+    }): Promise<{ data: User[]; total: number }> => {
+        const response = await api.get('/users/clinic/staff', {
+            params: {
+                page: params?.page || 1,
+                limit: params?.limit || 100,
+                search: params?.search,
+            }
+        });
+        return response.data;
+    },
 };

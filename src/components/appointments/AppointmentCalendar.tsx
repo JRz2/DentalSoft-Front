@@ -68,6 +68,7 @@ export function AppointmentCalendar({
         onDateSelect(today);
     };
 
+    // ✅ Esta función recibe un día específico y devuelve las citas de ESE día
     const getAppointmentsForDay = (day: Date) => {
         return appointments.filter(appointment =>
             isSameDay(new Date(appointment.appointmentDate), day)
@@ -90,6 +91,7 @@ export function AppointmentCalendar({
                     </div>
                 ))}
                 {days.map((day) => {
+                    // ✅ Obtener citas de ESTE día específico
                     const dayAppointments = getAppointmentsForDay(day);
                     const isSelected = isSameDay(day, selectedDate);
                     const isCurrentMonth = isSameMonth(day, currentMonth);
@@ -124,6 +126,7 @@ export function AppointmentCalendar({
                                     </Badge>
                                 )}
                             </div>
+                            {/* ✅ Mostrar barras de colores de TODAS las citas de ESTE día */}
                             <div className="mt-1 space-y-0.5">
                                 {dayAppointments.slice(0, 3).map((appointment) => (
                                     <div
@@ -132,6 +135,7 @@ export function AppointmentCalendar({
                                             "h-1.5 rounded-full",
                                             statusColors[appointment.status] || 'bg-gray-400'
                                         )}
+                                        title={`${appointment.patient?.fullName} - ${format(new Date(appointment.appointmentDate), 'HH:mm')}`}
                                     />
                                 ))}
                                 {dayAppointments.length > 3 && (
@@ -152,6 +156,7 @@ export function AppointmentCalendar({
         return (
             <div className="grid grid-cols-7 gap-1">
                 {days.map((day) => {
+                    // ✅ Obtener citas de ESTE día específico
                     const dayAppointments = getAppointmentsForDay(day);
                     const isSelected = isSameDay(day, selectedDate);
                     const isTodayDate = isToday(day);
@@ -164,29 +169,50 @@ export function AppointmentCalendar({
                                 setCurrentMonth(day);
                             }}
                             className={cn(
-                                "p-2 min-h-[120px] rounded-lg border-2 transition-all",
+                                "p-2 min-h-[120px] rounded-lg border-2 transition-all text-left",
                                 isSelected && "border-primary-500 bg-primary-50",
                                 !isSelected && "border-transparent hover:border-gray-200 hover:bg-gray-50",
                                 isTodayDate && "border-blue-300 bg-blue-50/50"
                             )}
                         >
-                            <div className="text-center">
+                            <div className="text-center border-b border-gray-100 pb-1 mb-1">
                                 <span className={cn(
                                     "text-sm font-medium",
                                     isTodayDate && "text-blue-600"
                                 )}>
                                     {format(day, 'EEE d', { locale: es })}
                                 </span>
+                                {dayAppointments.length > 0 && (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 ml-1">
+                                        {dayAppointments.length}
+                                    </Badge>
+                                )}
                             </div>
-                            <div className="mt-2 space-y-1">
-                                {dayAppointments.map((appointment) => (
-                                    <div
-                                        key={appointment.id}
-                                        className="text-xs p-1 rounded bg-gray-50 truncate"
-                                    >
-                                        {format(new Date(appointment.appointmentDate), 'HH:mm')} - {appointment.patient?.fullName}
-                                    </div>
-                                ))}
+                            {/* ✅ Mostrar TODAS las citas de ESTE día */}
+                            <div className="space-y-0.5 max-h-[80px] overflow-y-auto">
+                                {dayAppointments.length === 0 ? (
+                                    <div className="text-xs text-gray-300 text-center py-2">-</div>
+                                ) : (
+                                    dayAppointments
+                                        .sort((a, b) => new Date(a.appointmentDate).getTime() - new Date(b.appointmentDate).getTime())
+                                        .map((appointment) => (
+                                            <div
+                                                key={appointment.id}
+                                                className="text-xs p-0.5 rounded bg-gray-50 truncate flex items-center gap-1"
+                                            >
+                                                <span className={cn(
+                                                    "w-1 h-1 rounded-full shrink-0",
+                                                    statusColors[appointment.status] || 'bg-gray-400'
+                                                )} />
+                                                <span className="font-medium">
+                                                    {format(new Date(appointment.appointmentDate), 'HH:mm')}
+                                                </span>
+                                                <span className="text-gray-600 truncate">
+                                                    {appointment.patient?.fullName}
+                                                </span>
+                                            </div>
+                                        ))
+                                )}
                             </div>
                         </button>
                     );

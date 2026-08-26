@@ -1,34 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { useCreateAppointment, useUpdateAppointment } from '@/hooks/useAppointments';
 import { usePatients } from '@/hooks/usePatients';
-import { useDoctors } from '@/hooks/useDoctors';
+import { useStaff } from '@/hooks/useDoctors';
 import { useTreatments } from '@/hooks/useTreatments';
 import { Appointment, CreateAppointmentDto, UpdateAppointmentDto } from '@/types/appointment';
-import { toast } from 'sonner';
 import { CalendarIcon, User, Stethoscope, Clock, FileText } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { Patient } from '@/types/patient';
 
 const appointmentSchema = z.object({
     patientId: z.number().min(1, 'Selecciona un paciente'),
@@ -52,21 +41,6 @@ interface AppointmentFormProps {
     defaultDoctorId?: number;
 }
 
-// ✅ Generar horas disponibles (de 8:00 a 20:00 en intervalos de 15 minutos)
-const generateTimeSlots = () => {
-    const slots: string[] = [];
-    for (let hour = 8; hour < 20; hour++) {
-        for (let minute = 0; minute < 60; minute += 15) {
-            const hourStr = hour.toString().padStart(2, '0');
-            const minuteStr = minute.toString().padStart(2, '0');
-            slots.push(`${hourStr}:${minuteStr}`);
-        }
-    }
-    return slots;
-};
-
-const TIME_SLOTS = generateTimeSlots();
-
 export function AppointmentForm({
     open,
     onOpenChange,
@@ -77,12 +51,21 @@ export function AppointmentForm({
 }: AppointmentFormProps) {
     const createAppointment = useCreateAppointment();
     const updateAppointment = useUpdateAppointment();
-    const { data: patientsData } = usePatients({ page: 1, limit: 100 });
-    const { data: doctors } = useDoctors();
+    const [patientSearchTerm, setPatientSearchTerm] = useState('');
+    const { data: patientsData, isLoading: patientsLoading } = usePatients({
+        search: patientSearchTerm || undefined,
+        limit: 20,
+    });
+    const { data: staffData } = useStaff();
     const { data: treatments } = useTreatments();
 
     const isEditing = !!appointmentToEdit;
     const patients = patientsData?.data || [];
+    const staff = staffData?.data || [];
+
+    const [popoverPatientOpen, setPopoverPatientOpen] = useState(false);
+    const [popoverDoctorOpen, setPopoverDoctorOpen] = useState(false);
+    const [doctorSearchTerm, setDoctorSearchTerm] = useState('');
 
     const {
         register,
@@ -109,6 +92,12 @@ export function AppointmentForm({
         },
     });
 
+    const selectedPatientId = watch('patientId');
+    const selectedPatient = patients.find((p: Patient) => p.id === selectedPatientId);
+
+    const selectedDoctorId = watch('doctorId');
+    const selectedDoctor = staff.find((d: any) => d.id === selectedDoctorId);
+
     useEffect(() => {
         if (appointmentToEdit) {
             setValue('patientId', appointmentToEdit.patientId);
@@ -134,19 +123,25 @@ export function AppointmentForm({
                 notes: '',
                 treatmentId: undefined,
             });
+            setPatientSearchTerm('');
+            setDoctorSearchTerm('');
         }
     }, [open, reset, defaultDate, defaultDoctorId]);
 
+    const handleSelectPatient = (patientId: number) => {
+        setValue('patientId', patientId);
+        setPopoverPatientOpen(false);
+        setPatientSearchTerm('');
+    };
+
+    const handleSelectDoctor = (doctorId: number) => {
+        setValue('doctorId', doctorId);
+        setPopoverDoctorOpen(false);
+        setDoctorSearchTerm('');
+    };
+
     const onSubmit = async (data: AppointmentFormData) => {
         try {
-              console.log('📤 Datos a enviar:', {
-            patientId: data.patientId,
-            doctorId: data.doctorId, // ✅ Verificar qué doctorId se envía
-            appointmentDate: data.appointmentDate,
-            duration: data.duration,
-            reason: data.reason,
-        });
-            // ✅ Combinar fecha y hora
             const appointmentDateTime = new Date(`${data.appointmentDate}T${data.appointmentTime}:00`);
             const isoString = appointmentDateTime.toISOString();
 
@@ -200,62 +195,145 @@ export function AppointmentForm({
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                    {/* Fila 1: Paciente y Doctor */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="patientId" className="flex items-center gap-2">
-                                <User className="h-4 w-4" />
-                                Paciente
-                                <span className="text-red-500">*</span>
-                            </Label>
-                            <Select
-                                onValueChange={(value) => setValue('patientId', parseInt(value))}
-                                value={watch('patientId')?.toString() || ''}
+                    {/* Selección de paciente */}
+                    <div className="space-y-2">
+                        <Label>Paciente *</Label>
+                        <Popover open={popoverPatientOpen} onOpenChange={setPopoverPatientOpen}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    className={cn(
+                                        "w-full justify-between",
+                                        !selectedPatientId && "text-muted-foreground",
+                                        errors.patientId && "border-red-500"
+                                    )}
+                                >
+                                    {selectedPatientId && selectedPatient ? (
+                                        <div className="flex items-center gap-2">
+                                            <User className="h-4 w-4" />
+                                            <span>{selectedPatient.fullName}</span>
+                                            <span className="text-xs text-gray-400">#{selectedPatient.medicalRecordNum}</span>
+                                        </div>
+                                    ) : (
+                                        "Buscar paciente..."
+                                    )}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                                className="p-0 w-[400px] max-w-[90vw]"
+                                align="start"
+                                style={{ maxHeight: '300px', overflowY: 'auto' }}
+                                onWheel={(e) => e.stopPropagation()}
                             >
-                                <SelectTrigger className={errors.patientId ? 'border-red-500' : ''}>
-                                    <SelectValue placeholder="Buscar paciente..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {patients.map((patient) => (
-                                        <SelectItem key={patient.id} value={patient.id.toString()}>
-                                            {patient.fullName}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {errors.patientId && (
-                                <p className="text-sm text-red-500">{errors.patientId.message}</p>
-                            )}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="doctorId" className="flex items-center gap-2">
-                                <Stethoscope className="h-4 w-4" />
-                                Doctor
-                                <span className="text-red-500">*</span>
-                            </Label>
-                            <Select
-                                onValueChange={(value) => setValue('doctorId', parseInt(value))}
-                                value={watch('doctorId')?.toString() || ''}
-                            >
-                                <SelectTrigger className={errors.doctorId ? 'border-red-500' : ''}>
-                                    <SelectValue placeholder="Seleccionar doctor..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {doctors?.map((doctor: any) => (
-                                        <SelectItem key={doctor.id} value={doctor.id.toString()}>
-                                            {doctor.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {errors.doctorId && (
-                                <p className="text-sm text-red-500">{errors.doctorId.message}</p>
-                            )}
-                        </div>
+                                <Command className="max-h-[300px] overflow-y-auto">
+                                    <CommandInput
+                                        placeholder="Buscar paciente..."
+                                        value={patientSearchTerm}
+                                        onValueChange={(value) => setPatientSearchTerm(value)}
+                                        className="h-10 !border-0 !ring-0 !outline-none focus:!ring-0 focus:!outline-none focus-visible:!ring-0 focus-visible:!outline-none"
+                                    />
+                                    <CommandList className="py-2 max-h-[200px] overflow-y-auto">
+                                        {patientsLoading ? (
+                                            <div className="px-3 py-2 text-sm text-gray-500">Cargando...</div>
+                                        ) : (
+                                            <>
+                                                <CommandEmpty>No se encontraron pacientes</CommandEmpty>
+                                                <CommandGroup>
+                                                    {patients.map((patient: Patient) => (
+                                                        <CommandItem
+                                                            key={patient.id}
+                                                            onSelect={() => handleSelectPatient(patient.id)}
+                                                            className="flex items-center gap-2 cursor-pointer"
+                                                        >
+                                                            <User className="h-4 w-4 text-gray-400" />
+                                                            <span>{patient.fullName}</span>
+                                                            <span className="text-xs text-gray-400">#{patient.medicalRecordNum}</span>
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            </>
+                                        )}
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        {errors.patientId && (
+                            <p className="text-sm text-red-500">{errors.patientId.message}</p>
+                        )}
                     </div>
 
-                    {/* Fila 2: Fecha y Hora */}
+                    {/* Selección de doctor - Búsqueda local */}
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                            <Stethoscope className="h-4 w-4" />
+                            Doctor
+                            <span className="text-red-500">*</span>
+                        </Label>
+                        <Popover open={popoverDoctorOpen} onOpenChange={setPopoverDoctorOpen}>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    className={cn(
+                                        "w-full justify-between",
+                                        !selectedDoctorId && "text-muted-foreground",
+                                        errors.doctorId && "border-red-500"
+                                    )}
+                                >
+                                    {selectedDoctorId && selectedDoctor ? (
+                                        <div className="flex items-center gap-2">
+                                            <Stethoscope className="h-4 w-4" />
+                                            <span>{selectedDoctor.name}</span>
+                                            <span className="text-xs text-gray-400">
+                                                {selectedDoctor.role === 'DOCTOR' ? '👨‍⚕️' : '👩‍💼'}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        "Buscar doctor..."
+                                    )}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                                className="p-0 w-[400px] max-w-[90vw]"
+                                align="start"
+                                style={{ maxHeight: '300px', overflowY: 'auto' }}
+                                onWheel={(e) => e.stopPropagation()}
+                            >
+                                <Command className="max-h-[300px] overflow-y-auto">
+                                    <CommandInput
+                                        placeholder="Buscar doctor..."
+                                        value={doctorSearchTerm}
+                                        onValueChange={setDoctorSearchTerm}
+                                        className="h-10 !border-0 !ring-0 !outline-none focus:!ring-0 focus:!outline-none focus-visible:!ring-0 focus-visible:!outline-none"
+                                    />
+                                    <CommandList className="py-2 max-h-[200px] overflow-y-auto">
+                                        <CommandEmpty>No se encontraron doctores</CommandEmpty>
+                                        <CommandGroup>
+                                            {staff.map((user: any) => (
+                                                <CommandItem
+                                                    key={user.id}
+                                                    onSelect={() => handleSelectDoctor(user.id)}
+                                                    className="flex items-center gap-2 cursor-pointer"
+                                                >
+                                                    <Stethoscope className="h-4 w-4 text-gray-400" />
+                                                    <span>{user.name}</span>
+                                                    <span className="text-xs text-gray-400">
+                                                        {user.role === 'DOCTOR' ? '👨‍⚕️ Doctor' : '👩‍💼 Recepcionista'}
+                                                    </span>
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        {errors.doctorId && (
+                            <p className="text-sm text-red-500">{errors.doctorId.message}</p>
+                        )}
+                    </div>
+
+                    {/* Fecha y Hora */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="appointmentDate" className="flex items-center gap-2">
@@ -274,35 +352,45 @@ export function AppointmentForm({
                                 <p className="text-sm text-red-500">{errors.appointmentDate.message}</p>
                             )}
                         </div>
-
+                        {/* Hora - Slider */}
                         <div className="space-y-2">
-                            <Label htmlFor="appointmentTime" className="flex items-center gap-2">
-                                <Clock className="h-4 w-4" />
-                                Hora
-                                <span className="text-red-500">*</span>
-                            </Label>
-                            <Select
-                                onValueChange={(value) => setValue('appointmentTime', value)}
-                                value={watch('appointmentTime') || '09:00'}
-                            >
-                                <SelectTrigger className={errors.appointmentTime ? 'border-red-500' : ''}>
-                                    <SelectValue placeholder="Seleccionar hora..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {TIME_SLOTS.map((time) => (
-                                        <SelectItem key={time} value={time}>
-                                            {time}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="flex items-center justify-between">
+                                <Label className="flex items-center gap-2">
+                                    <Clock className="h-4 w-4" />
+                                    Hora
+                                    <span className="text-red-500">*</span>
+                                </Label>
+                                <span className="text-sm font-medium text-gray-700">
+                                    {watch('appointmentTime') || '09:00'}
+                                </span>
+                            </div>
+                            <input
+                                type="range"
+                                min="8"
+                                max="20"
+                                step="0.25"
+                                defaultValue="9"
+                                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-500"
+                                onChange={(e) => {
+                                    const hour = parseFloat(e.target.value);
+                                    const hours = Math.floor(hour);
+                                    const minutes = (hour - hours) * 60;
+                                    const time = `${hours.toString().padStart(2, '0')}:${Math.round(minutes).toString().padStart(2, '0')}`;
+                                    setValue('appointmentTime', time);
+                                }}
+                            />
+                            <div className="flex justify-between text-xs text-gray-400">
+                                <span>08:00</span>
+                                <span>14:00</span>
+                                <span>20:00</span>
+                            </div>
                             {errors.appointmentTime && (
                                 <p className="text-sm text-red-500">{errors.appointmentTime.message}</p>
                             )}
                         </div>
                     </div>
 
-                    {/* Fila 3: Duración */}
+                    {/* Duración */}
                     <div className="space-y-2">
                         <Label htmlFor="duration" className="flex items-center gap-2">
                             <Clock className="h-4 w-4" />
@@ -338,7 +426,7 @@ export function AppointmentForm({
                         )}
                     </div>
 
-                    {/* Fila 4: Motivo */}
+                    {/* Motivo */}
                     <div className="space-y-2">
                         <Label htmlFor="reason" className="flex items-center gap-2">
                             <FileText className="h-4 w-4" />
@@ -357,7 +445,7 @@ export function AppointmentForm({
                         )}
                     </div>
 
-                    {/* Fila 5: Tratamiento y Notas */}
+                    {/* Tratamiento y Notas */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="treatmentId">Tratamiento asociado</Label>

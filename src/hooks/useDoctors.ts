@@ -25,3 +25,14 @@ export const useDoctor = (id: number) => {
         staleTime: 1000 * 60 * 5,
     });
 };
+
+export const useStaff = () => {
+    return useQuery({
+        queryKey: ['staff'],
+        queryFn: async () => {
+            const response = await api.get('/users/clinic/staff');
+            return response.data;
+        },
+        staleTime: 1000 * 60 * 5,
+    });
+};
