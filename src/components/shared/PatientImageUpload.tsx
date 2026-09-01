@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, X, User, Loader2 } from 'lucide-react';
+import { Camera, X, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/services/api';
+import { Input } from '@/components/ui/input';
 
 const getImageUrl = (path: string) => {
     if (!path) return '';
@@ -25,7 +25,8 @@ interface PatientImageUploadProps {
     patientId?: number;
     isNewPatient?: boolean;
     onFileSelected?: (file: File) => void;
-    onPhotoUploaded?: () => void; 
+    onPhotoUploaded?: () => void;
+    patientName?: string;
 }
 
 export function PatientImageUpload({
@@ -34,12 +35,24 @@ export function PatientImageUpload({
     patientId,
     isNewPatient = false,
     onFileSelected,
-    onPhotoUploaded 
+    onPhotoUploaded,
+    patientName,
 }: PatientImageUploadProps) {
     const [isUploading, setIsUploading] = useState(false);
     const [preview, setPreview] = useState<string | null>(null);
     const [imageError, setImageError] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const getInitials = (name?: string) => {
+        if (!name) return 'Foto';
+        return name
+            .split(' ')
+            .map(word => word[0])
+            .slice(0, 2)
+            .join('')
+            .toUpperCase();
+    };
 
     // Cargar la imagen actual cuando cambia
     useEffect(() => {
@@ -102,16 +115,13 @@ export function PatientImageUpload({
             setImageError(false);
             onImageUploaded(serverUrl);
 
-            // NOTIFICAR QUE LA FOTO SE SUBIÓ
             if (onPhotoUploaded) {
-                console.log('📸 Notificando que la foto se subió');
                 onPhotoUploaded();
             }
 
             toast.success('Foto actualizada exitosamente');
         } catch (error: any) {
             console.error('Error al subir foto:', error);
-            console.error('Respuesta:', error.response?.data);
             toast.error(error.response?.data?.message || 'Error al subir la foto');
             setPreview(currentImage ? getImageUrl(currentImage) : null);
         } finally {
@@ -119,13 +129,31 @@ export function PatientImageUpload({
         }
     };
 
-    const handleRemove = () => {
+    const handleRemove = async () => {
         if (preview && preview.startsWith('blob:')) {
             URL.revokeObjectURL(preview);
         }
         setPreview(null);
         setImageError(false);
         onImageUploaded('');
+
+        // Si es un paciente existente, eliminar del servidor
+        if (!isNewPatient && patientId) {
+            try {
+                setIsUploading(true);
+                await api.delete(`/patient/${patientId}/photo`);
+                toast.success('Foto eliminada correctamente');
+                if (onPhotoUploaded) {
+                    onPhotoUploaded();
+                }
+            } catch (error: any) {
+                console.error('Error al eliminar foto:', error);
+                toast.error(error.response?.data?.message || 'Error al eliminar la foto');
+            } finally {
+                setIsUploading(false);
+            }
+        }
+
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -139,11 +167,17 @@ export function PatientImageUpload({
     const showPreview = preview && !imageError;
 
     return (
-        <div className="space-y-2">
-            <Label>Foto del paciente</Label>
-            <div className="flex items-start gap-4">
-                {/* Preview - Avatar circular */}
-                <div className="w-24 h-24 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center border-2 border-gray-200">
+        <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-700">Foto del paciente</Label>
+
+            {/* Avatar con overlay */}
+            <div
+                className="relative w-32 h-32 mx-auto"
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+            >
+                {/* Avatar circular */}
+                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden flex items-center justify-center border-4 border-primary-100 shadow-lg">
                     {showPreview ? (
                         <img
                             src={preview}
@@ -153,51 +187,65 @@ export function PatientImageUpload({
                             key={preview}
                         />
                     ) : (
-                        <User className="h-12 w-12 text-gray-400" />
+                        <span className="text-4xl font-medium text-gray-400">
+                            {getInitials(patientName)}
+                        </span>
                     )}
                 </div>
 
-                {/* Botones */}
-                <div className="flex-1 space-y-2">
-                    <div className="flex gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isUploading}
-                            className="gap-2"
-                        >
-                            {isUploading ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <Upload className="h-4 w-4" />
-                            )}
-                            {isUploading ? 'Subiendo...' : 'Seleccionar foto'}
-                        </Button>
-                        {preview && (
+                {/* Overlay al hacer hover */}
+                {isHovered && !isUploading && (
+                    <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center transition-opacity">
+                        <div className="flex gap-3">
                             <Button
                                 type="button"
                                 variant="ghost"
-                                onClick={handleRemove}
-                                className="text-red-600 gap-1"
+                                size="icon"
+                                className="h-10 w-10 rounded-full bg-white/20 hover:bg-white/30 text-white transition-all hover:scale-110"
+                                onClick={() => fileInputRef.current?.click()}
                             >
-                                <X className="h-4 w-4" />
-                                Eliminar
+                                <Camera className="h-5 w-5" />
                             </Button>
-                        )}
+                            {showPreview && (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-10 w-10 rounded-full bg-white/20 hover:bg-white/30 text-white transition-all hover:scale-110"
+                                    onClick={handleRemove}
+                                >
+                                    <X className="h-5 w-5" />
+                                </Button>
+                            )}
+                        </div>
                     </div>
-                    <Input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="hidden"
-                    />
-                    <p className="text-xs text-gray-500">
-                        Formatos: JPG, PNG, GIF, WEBP. Máximo 5MB.
-                    </p>
-                </div>
+                )}
+
+                {/* Spinner de carga */}
+                {isUploading && (
+                    <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                        <Loader2 className="h-8 w-8 text-white animate-spin" />
+                    </div>
+                )}
+
+                {/* Input oculto */}
+                <Input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                />
             </div>
+
+            {/* Texto de ayuda */}
+            <p className="text-xs text-gray-400 text-center">
+                {showPreview ? (
+                    <span>Pasa el mouse para cambiar o eliminar la foto</span>
+                ) : (
+                    <span>Pasa el mouse sobre el avatar para agregar una foto</span>
+                )}
+            </p>
         </div>
     );
 }

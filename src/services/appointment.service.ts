@@ -74,4 +74,10 @@ export const appointmentService = {
     delete: async (id: number): Promise<void> => {
         await api.delete(`/appointment/${id}`);
     },
+
+    // Obtener citas por tratamiento
+    getByTreatment: async (treatmentId: number): Promise<Appointment[]> => {
+        const response = await api.get(`/appointment/treatment/${treatmentId}`);
+        return response.data;
+    },
 };

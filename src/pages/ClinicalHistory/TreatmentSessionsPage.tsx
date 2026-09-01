@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, Clock, ClipboardList, Stethoscope } from 'lucide-react';
+import { Plus, Clock, ClipboardList, Stethoscope, CalendarPlus, Image, CreditCard, ListChecks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SessionForm } from '@/components/clinical/SessionForm';
 import { SessionTable } from '@/components/clinical/SessionTable';
 import { PaymentSummary } from '@/components/treatments/PaymentSummary';
@@ -16,6 +17,10 @@ import { toast } from 'sonner';
 import { ImageCarousel } from '@/components/treatments/ImageGallery';
 import { UploadImageModal } from '@/components/treatments/UploadImageModal';
 import { useMediaByTreatment, useDeleteMedia } from '@/hooks/useMedia';
+import { AppointmentFromTreatment } from '@/components/treatments/AppointmentFromTreatment';
+import { TreatmentAppointmentsList } from '@/components/treatments/TreatmentAppointmentsList';
+import { Appointment } from '@/types/appointment';
+import { appointmentService } from '@/services/appointment.service';
 
 const typeLabels: Record<string, string> = {
     DIAGNOSIS: 'Diagnóstico',
@@ -75,10 +80,13 @@ export function TreatmentSessionsPage() {
     const [treatment, setTreatment] = useState<Treatment | null>(null);
     const [sessions, setSessions] = useState<TreatmentSession[]>([]);
     const [paymentStatus, setPaymentStatus] = useState<any>(null);
+    const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [showSessionForm, setShowSessionForm] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshKey, setRefreshKey] = useState(0);
     const [showUploadModal, setShowUploadModal] = useState(false);
+    const [showAppointmentForm, setShowAppointmentForm] = useState(false);
+    const [activeTab, setActiveTab] = useState('images');
 
     const { data: patient, isLoading: patientLoading } = usePatient(parseInt(patientId || '0'));
     const { data: images, isLoading: imagesLoading } = useMediaByTreatment(
@@ -97,14 +105,17 @@ export function TreatmentSessionsPage() {
         if (!treatmentId) return;
         setIsLoading(true);
         try {
-            const [treatmentData, sessionsData, paymentData] = await Promise.all([
-                clinicalHistoryService.getTreatmentById(parseInt(treatmentId)),
-                clinicalHistoryService.getSessionsByTreatment(parseInt(treatmentId)),
-                clinicalHistoryService.getPaymentStatus(parseInt(treatmentId)),
+            const treatmentIdNum = parseInt(treatmentId);
+            const [treatmentData, sessionsData, paymentData, appointmentsData] = await Promise.all([
+                clinicalHistoryService.getTreatmentById(treatmentIdNum),
+                clinicalHistoryService.getSessionsByTreatment(treatmentIdNum),
+                clinicalHistoryService.getPaymentStatus(treatmentIdNum),
+                appointmentService.getByTreatment(treatmentIdNum),
             ]);
             setTreatment(treatmentData);
             setSessions(sessionsData);
             setPaymentStatus(paymentData);
+            setAppointments(appointmentsData || []);
         } catch (error) {
             console.error('Error al cargar datos:', error);
             toast.error('Error al cargar los datos del tratamiento');
@@ -116,6 +127,12 @@ export function TreatmentSessionsPage() {
     const handleSessionAdded = async () => {
         await loadData();
         setShowSessionForm(false);
+    };
+
+    const handleAppointmentCreated = async () => {
+        await loadData();
+        setShowAppointmentForm(false);
+        toast.success('Cita creada correctamente');
     };
 
     const nextSessionNumber = sessions.length + 1;
@@ -191,13 +208,15 @@ export function TreatmentSessionsPage() {
                                         {treatment.name}
                                     </p>
                                 </div>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => navigate(`/clinical-history/${patientId}`)}
-                                    className="gap-2"
-                                >
-                                    Ver Historia Clínica
-                                </Button>
+                                <div className="flex gap-2 flex-wrap">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => navigate(`/clinical-history/${patientId}`)}
+                                        className="gap-2"
+                                    >
+                                        Ver Historia Clínica
+                                    </Button>
+                                </div>
                             </div>
 
                             {/* Datos del tratamiento */}
@@ -231,70 +250,165 @@ export function TreatmentSessionsPage() {
                         </div>
                     </div>
                 </div>
+                {/* TABS */}
+                <div className="w-full">
+                    <Tabs
+                        defaultValue="images"
+                        value={activeTab}
+                        onValueChange={setActiveTab}
+                        className="w-full flex flex-col"
+                    >
+                        <TabsList className="w-full max-w-md grid grid-cols-3 mx-auto">
+                            <TabsTrigger value="images" className="flex items-center gap-2">
+                                <Image className="h-4 w-4" />
+                                Imágenes
+                                <Badge variant="secondary" className="ml-1 text-xs">
+                                    {images?.length || 0}
+                                </Badge>
+                            </TabsTrigger>
+                            <TabsTrigger value="sessions" className="flex items-center gap-2">
+                                <ListChecks className="h-4 w-4" />
+                                Sesiones
+                                <Badge variant="secondary" className="ml-1 text-xs">
+                                    {sessions.length}
+                                </Badge>
+                            </TabsTrigger>
+                            <TabsTrigger value="payments" className="flex items-center gap-2">
+                                <CreditCard className="h-4 w-4" />
+                                Pagos
+                            </TabsTrigger>
+                        </TabsList>
 
-                {/* Galería de imágenes */}
-                {treatment && (
-                    <ImageCarousel
-                        images={images || []}
-                        isLoading={imagesLoading}
-                        treatmentName={treatment.name}
-                        onUpload={() => setShowUploadModal(true)}
-                        onDelete={(id) => deleteMedia.mutateAsync(id)}
-                    />
-                )}
+                        <TabsContent value="images" className="mt-6 space-y-6 w-full">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Image className="h-5 w-5 text-primary-600" />
+                                        Galería de Imágenes
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Documentación visual del tratamiento
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {treatment && (
+                                        <ImageCarousel
+                                            images={images || []}
+                                            isLoading={imagesLoading}
+                                            treatmentName={treatment.name}
+                                            onUpload={() => setShowUploadModal(true)}
+                                            onDelete={(id) => deleteMedia.mutateAsync(id)}
+                                        />
+                                    )}
+                                </CardContent>
+                            </Card>
 
-                {/* Resumen de pagos */}
-                {paymentStatus && <PaymentSummary paymentStatus={paymentStatus} />}
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <CalendarPlus className="h-5 w-5 text-primary-600" />
+                                        Citas del Tratamiento
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Citas programadas relacionadas con este tratamiento
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <TreatmentAppointmentsList
+                                        appointments={appointments}
+                                        isLoading={isLoading}
+                                        onViewAppointment={(appointment) => {
+                                            navigate(`/appointments/${appointment.id}`);
+                                        }}
+                                        onCreateAppointment={() => setShowAppointmentForm(true)}
+                                    />
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
 
-                {/* Historial de pagos */}
-                {paymentStatus && paymentStatus.payments?.length > 0 && (
-                    <PaymentHistory
-                        payments={paymentStatus.payments || []}
-                        totalCost={treatment?.totalCost || 0}
-                        treatmentId={treatment?.id || 0}
-                        onPaymentRegistered={handlePaymentRegistered}
-                    />
-                )}
+                        <TabsContent value="sessions" className="mt-6 w-full">
+                            <Card>
+                                <CardHeader>
+                                    <div className="flex justify-between items-center flex-wrap gap-3">
+                                        <div>
+                                            <CardTitle className="flex items-center gap-2">
+                                                <ListChecks className="h-5 w-5 text-primary-600" />
+                                                Sesiones realizadas
+                                            </CardTitle>
+                                            <CardDescription>
+                                                {sessions.length} {sessions.length === 1 ? 'sesión registrada' : 'sesiones registradas'}
+                                            </CardDescription>
+                                        </div>
+                                        <Button onClick={() => setShowSessionForm(true)} className="gap-2">
+                                            <Plus className="h-4 w-4" />
+                                            Nueva Sesión
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    <SessionTable
+                                        data={sessions}
+                                        isLoading={isLoading}
+                                        treatmentName={treatment?.name}
+                                        onComplete={async (session) => {
+                                            try {
+                                                await clinicalHistoryService.completeSession(session.id);
+                                                await loadData();
+                                            } catch (error) {
+                                                console.error('Error al completar sesión:', error);
+                                            }
+                                        }}
+                                        onSessionUpdated={loadData}
+                                    />
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
 
-                {/* Lista de sesiones */}
-                <Card className="border-0 shadow-sm">
-                    <CardHeader className="border-b bg-gray-50/50">
-                        <div className="flex justify-between items-center flex-wrap gap-3">
-                            <div className="flex items-center gap-3">
-                                <ClipboardList className="h-5 w-5 text-primary-600" />
-                                <div>
-                                    <CardTitle>Sesiones realizadas</CardTitle>
-                                    <p className="text-sm text-gray-500 mt-0.5">
-                                        {sessions.length} {sessions.length === 1 ? 'sesión registrada' : 'sesiones registradas'}
-                                    </p>
-                                </div>
-                            </div>
-                            <Button onClick={() => setShowSessionForm(true)} className="gap-2">
-                                <Plus className="h-4 w-4" />
-                                Nueva Sesión
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                        <SessionTable
-                            data={sessions}
-                            isLoading={isLoading}
-                            treatmentName={treatment?.name}
-                            onComplete={async (session) => {
-                                try {
-                                    await clinicalHistoryService.completeSession(session.id);
-                                    await loadData();
-                                } catch (error) {
-                                    console.error('Error al completar sesión:', error);
-                                }
-                            }}
-                            onSessionUpdated={loadData}
-                        />
-                    </CardContent>
-                </Card>
+                        <TabsContent value="payments" className="mt-6 space-y-6 w-full">
+                            {paymentStatus && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            <CreditCard className="h-5 w-5 text-primary-600" />
+                                            Resumen de Pagos
+                                        </CardTitle>
+                                        <CardDescription>
+                                            {paymentStatus.payments?.length || 0} pagos registrados
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <PaymentSummary paymentStatus={paymentStatus} />
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {paymentStatus && (
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2">
+                                            Historial de Pagos
+                                        </CardTitle>
+                                        <CardDescription>
+                                            {paymentStatus.payments?.length || 0} pagos registrados
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <PaymentHistory
+                                            payments={paymentStatus.payments || []}
+                                            totalCost={treatment?.totalCost || 0}
+                                            treatmentId={treatment?.id || 0}
+                                            onPaymentRegistered={handlePaymentRegistered}
+                                        />
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </TabsContent>
+                    </Tabs>
+                </div>
+
             </div>
 
-            {/* Modal para nueva sesión */}
+            {/* Modales */}
             <SessionForm
                 open={showSessionForm}
                 onOpenChange={setShowSessionForm}
@@ -303,7 +417,6 @@ export function TreatmentSessionsPage() {
                 onSuccess={handleSessionAdded}
             />
 
-            {/* Modal para subir imágenes */}
             {treatment && (
                 <UploadImageModal
                     open={showUploadModal}
@@ -313,6 +426,19 @@ export function TreatmentSessionsPage() {
                     onSuccess={() => {
                         setShowUploadModal(false);
                     }}
+                />
+            )}
+
+            {treatment && patient && (
+                <AppointmentFromTreatment
+                    open={showAppointmentForm}
+                    onOpenChange={setShowAppointmentForm}
+                    patientId={patient.id}
+                    treatmentId={treatment.id}
+                    treatmentName={treatment.name}
+                    sessions={sessions.map(s => ({ id: s.id, sessionNumber: s.sessionNumber }))}
+                    onSuccess={handleAppointmentCreated}
+                    defaultDate={new Date().toISOString().split('T')[0]}
                 />
             )}
         </div>

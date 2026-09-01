@@ -258,7 +258,7 @@ export function UploadImageModal({
                                     <SelectValue placeholder="Sin sesión" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">Sin sesión</SelectItem>
+                                    <SelectItem value="none">Sin sesión</SelectItem>
                                     {sessions.map((session) => (
                                         <SelectItem key={session.id} value={session.id.toString()}>
                                             Sesión {session.sessionNumber}
