@@ -69,9 +69,8 @@ export function PatientForm({
 
     return (
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Foto del paciente */}
-                <div className="md:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="md:col-span-2 flex justify-center">
                     <PatientImageUpload
                         currentImage={photoUrl}
                         onImageUploaded={handlePhotoUpload}
@@ -79,64 +78,68 @@ export function PatientForm({
                         isNewPatient={isNewPatient}
                         onFileSelected={handlePhotoFileSelected}
                         onPhotoUploaded={onPhotoUploaded}
+                        patientName={watch('fullName')}
                     />
                 </div>
 
-                {/* Resto del formulario existente */}
+                <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="fullName">Nombre completo *</Label>
+                        <Input
+                            id="fullName"
+                            {...register('fullName')}
+                            placeholder="Juan Pérez"
+                            className={errors.fullName ? 'border-red-500' : ''}
+                        />
+                        {errors.fullName && (
+                            <p className="text-sm text-red-500">{errors.fullName.message}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="email">Email *</Label>
+                        <Input
+                            id="email"
+                            type="email"
+                            {...register('email')}
+                            placeholder="juan@ejemplo.com"
+                            className={errors.email ? 'border-red-500' : ''}
+                        />
+                        {errors.email && (
+                            <p className="text-sm text-red-500">{errors.email.message}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="phoneNumber">Teléfono *</Label>
+                        <Input
+                            id="phoneNumber"
+                            {...register('phoneNumber')}
+                            placeholder="+591 78945612"
+                            className={errors.phoneNumber ? 'border-red-500' : ''}
+                        />
+                        {errors.phoneNumber && (
+                            <p className="text-sm text-red-500">{errors.phoneNumber.message}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="birthDate">Fecha de nacimiento *</Label>
+                        <Input
+                            id="birthDate"
+                            type="date"
+                            {...register('birthDate')}
+                            className={errors.birthDate ? 'border-red-500' : ''}
+                        />
+                        {errors.birthDate && (
+                            <p className="text-sm text-red-500">{errors.birthDate.message}</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="fullName">Nombre completo *</Label>
-                    <Input
-                        id="fullName"
-                        {...register('fullName')}
-                        placeholder="Juan Pérez"
-                        className={errors.fullName ? 'border-red-500' : ''}
-                    />
-                    {errors.fullName && (
-                        <p className="text-sm text-red-500">{errors.fullName.message}</p>
-                    )}
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                        id="email"
-                        type="email"
-                        {...register('email')}
-                        placeholder="juan@ejemplo.com"
-                        className={errors.email ? 'border-red-500' : ''}
-                    />
-                    {errors.email && (
-                        <p className="text-sm text-red-500">{errors.email.message}</p>
-                    )}
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="phoneNumber">Teléfono *</Label>
-                    <Input
-                        id="phoneNumber"
-                        {...register('phoneNumber')}
-                        placeholder="+591 78945612"
-                        className={errors.phoneNumber ? 'border-red-500' : ''}
-                    />
-                    {errors.phoneNumber && (
-                        <p className="text-sm text-red-500">{errors.phoneNumber.message}</p>
-                    )}
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="birthDate">Fecha de nacimiento *</Label>
-                    <Input
-                        id="birthDate"
-                        type="date"
-                        {...register('birthDate')}
-                        className={errors.birthDate ? 'border-red-500' : ''}
-                    />
-                    {errors.birthDate && (
-                        <p className="text-sm text-red-500">{errors.birthDate.message}</p>
-                    )}
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="address">Dirección</Label>
                     <Input
                         id="address"
@@ -144,8 +147,10 @@ export function PatientForm({
                         placeholder="Calle Principal #123"
                     />
                 </div>
+            </div>
 
-                <div className="space-y-2 md:col-span-2">
+            <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
                     <Label htmlFor="dentalHistory">Historial dental</Label>
                     <Textarea
                         id="dentalHistory"
@@ -154,7 +159,9 @@ export function PatientForm({
                         rows={3}
                     />
                 </div>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <Label htmlFor="habits">Hábitos</Label>
                     <Input
@@ -174,7 +181,7 @@ export function PatientForm({
                 </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-2 pt-4 border-t">
                 <Button type="submit" disabled={isLoading}>
                     {isLoading ? 'Guardando...' : submitLabel}
                 </Button>

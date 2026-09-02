@@ -1,5 +1,5 @@
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Trash2, Eye, Play, Pause, CheckCircle, XCircle } from 'lucide-react';
+import { Pencil, Trash2, Eye, Play, Pause, CheckCircle, XCircle, PlayCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTableShadcn } from '@/components/shared/DataTableShadcn';
@@ -55,7 +55,9 @@ export function TreatmentTable({
     onViewDetail,
     onEdit,
     onDelete,
+    onStart,
     onComplete,
+    onCancel,
     patientId,
     pagination,
 }: TreatmentTableProps) {
@@ -142,15 +144,34 @@ export function TreatmentTable({
         {
             id: 'actions',
             header: 'Acciones',
-            size: 150,
+            size: 200,
             cell: ({ row }) => {
                 const treatment = row.original;
+                const isPlanned = treatment.status === 'PLANNED';
+                const isInProgress = treatment.status === 'IN_PROGRESS';
                 const isCompleted = treatment.status === 'COMPLETED';
                 const isCancelled = treatment.status === 'CANCELLED';
-                const canComplete = !isCompleted && !isCancelled;
+                const canStart = isPlanned;
+                const canComplete = !isCompleted && !isCancelled && isInProgress;
 
                 return (
                     <div className="flex gap-1">
+                        {/* ✅ Botón Iniciar - Solo visible si está PLANIFICADO */}
+                        {canStart && onStart && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onStart(treatment);
+                                }}
+                                className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 h-8 w-8"
+                                title="Iniciar tratamiento"
+                            >
+                                <PlayCircle className="h-4 w-4" />
+                            </Button>
+                        )}
+
                         {/* Ver - Siempre visible */}
                         <Button
                             variant="ghost"
@@ -185,7 +206,7 @@ export function TreatmentTable({
                             </Button>
                         )}
 
-                        {/* Completar - Solo si no está completado ni cancelado */}
+                        {/* Completar - Solo si está en progreso */}
                         {canComplete && onComplete && (
                             <Button
                                 variant="ghost"
@@ -198,6 +219,22 @@ export function TreatmentTable({
                                 title="Completar tratamiento"
                             >
                                 <CheckCircle className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        {/* Cancelar - Solo si está en progreso o planificado */}
+                        {!isCompleted && !isCancelled && onCancel && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onCancel(treatment);
+                                }}
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50 h-8 w-8"
+                                title="Cancelar tratamiento"
+                            >
+                                <XCircle className="h-4 w-4" />
                             </Button>
                         )}
 

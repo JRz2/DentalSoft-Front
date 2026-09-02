@@ -10,7 +10,7 @@ export interface Patient {
     habits?: string;
     medicalRecordNum?: string;
     medicalConditions?: string;
-    IsActive?: boolean;
+    isActive?: boolean;
     deletedAt?: string | null;
     createdAt?: string;
     updatedAt?: string;
@@ -26,6 +26,7 @@ export interface CreatePatientDto {
     dentalHistory?: string;
     habits?: string;
     medicalConditions?: string;
+    clinicId?: number;
 }
 
 export interface UpdatePatientDto {
@@ -38,13 +39,20 @@ export interface UpdatePatientDto {
     dentalHistory?: string;
     habits?: string;
     medicalConditions?: string;
-    IsActive?: boolean;
+    isActive?: boolean;
 }
 
 export interface PaginatedResponse<T> {
     data: T[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
+    meta: {
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+        stats?: {
+            totalActive: number;
+            newThisMonth: number;
+            totalDeleted?: number;
+        };
+    };
 }

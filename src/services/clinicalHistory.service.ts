@@ -44,6 +44,17 @@ export const clinicalHistoryService = {
         return response.data;
     },
 
+    // Iniciar tratamiento
+    startTreatment: async (id: number): Promise<Treatment> => {
+        const response = await api.patch(`/treatment/${id}/start`);
+        return response.data;
+    },
+
+    deleteTreatment: async (id: number): Promise<Treatment> => {
+        const response = await api.patch(`/treatment/${id}/delete`);
+        return response.data;
+    },
+
     // Cancelar tratamiento
     cancelTreatment: async (id: number): Promise<void> => {
         await api.delete(`/treatment/${id}`);

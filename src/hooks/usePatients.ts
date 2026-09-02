@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { patientService } from '../services/patient.service';
-import { CreatePatientInput, UpdatePatientInput } from '../lib/validations/patient.schema';
+import { CreatePatientDto, UpdatePatientDto, PaginatedResponse, Patient } from '@/types/patient';
 import { toast } from 'sonner';
 
 // Query keys para cache
@@ -27,13 +27,9 @@ export const usePatients = (params?: {
         search: params?.search || '',
     };
 
-     const queryKey = ['patients', 'list', JSON.stringify(normalizedParams)];
-
-    return useQuery({
-        queryKey: queryKey,
-        queryFn: () => {
-            return patientService.getAll(normalizedParams);
-        },
+    return useQuery<PaginatedResponse<Patient>>({
+        queryKey: ['patients', 'list', JSON.stringify(normalizedParams)],
+        queryFn: () => patientService.getAll(normalizedParams),
         retry: 1,
     });
 };
@@ -52,7 +48,7 @@ export const useCreatePatient = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (data: CreatePatientInput) => patientService.create(data),
+        mutationFn: (data: CreatePatientDto) => patientService.create(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: patientKeys.lists() });
             toast.success('Paciente creado exitosamente');
@@ -68,7 +64,7 @@ export const useUpdatePatient = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: ({ id, data }: { id: number; data: UpdatePatientInput }) =>
+        mutationFn: ({ id, data }: { id: number; data: UpdatePatientDto }) =>
             patientService.update(id, data),
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: patientKeys.lists() });
@@ -93,6 +89,22 @@ export const useDeletePatient = () => {
         },
         onError: (error: any) => {
             toast.error(error.response?.data?.message || 'Error al eliminar paciente');
+        },
+    });
+};
+
+// Hook para restaurar paciente
+export const useRestorePatient = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: number) => patientService.restore(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: patientKeys.lists() });
+            toast.success('Paciente restaurado exitosamente');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Error al restaurar paciente');
         },
     });
 };

@@ -11,13 +11,24 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from '@/components/ui/select';
 import { usePatient } from '@/hooks/usePatients';
-import { useClinicalHistory, useCompleteTreatment, useTreatments } from '@/hooks/useClinicalHistory';
+import {
+    useClinicalHistory,
+    useCompleteTreatment,
+    useTreatments,
+    useStartTreatment,
+    useCancelTreatment,
+    useDeleteTreatment
+} from '@/hooks/useClinicalHistory';
 import { TreatmentForm } from '@/components/clinical/TreatmentForm';
 import { ClinicalInfoForm } from '@/components/clinical/ClinicalInfoForm';
 import { TreatmentTable } from '@/components/clinical/TreatmentTable';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CompleteTreatmentDialog } from '@/components/treatments/CompleteTreatmentDialog';
+import { StartTreatmentDialog } from '@/components/treatments/StartTreatmentDialog';
+import { CancelTreatmentDialog } from '@/components/treatments/CancelTreatmentDialog';
+import { DeleteConfirmDialog } from '@/components/patients/DeleteConfirmDialog';
+import { clinicalHistoryService } from '@/services/clinicalHistory.service';
 
 // Opciones para filtros
 const statusOptions = [
@@ -47,7 +58,11 @@ export function ClinicalHistoryPage() {
     const { id } = useParams<{ id: string }>();
     const patientId = parseInt(id!);
     const navigate = useNavigate();
+
+    // ✅ Hooks de acciones
     const completeTreatment = useCompleteTreatment();
+    const startTreatment = useStartTreatment();
+    const cancelTreatment = useCancelTreatment();
 
     // Estados
     const [showTreatmentForm, setShowTreatmentForm] = useState(false);
@@ -57,7 +72,12 @@ export function ClinicalHistoryPage() {
     const [typeFilter, setTypeFilter] = useState('all');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+
+    // ✅ Diálogos
     const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+    const [startDialogOpen, setStartDialogOpen] = useState(false);
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [selectedTreatment, setSelectedTreatment] = useState<any>(null);
     const [showEditTreatmentForm, setShowEditTreatmentForm] = useState(false);
     const [treatmentToEdit, setTreatmentToEdit] = useState<any>(null);
@@ -69,11 +89,8 @@ export function ClinicalHistoryPage() {
 
     // Filtrar tratamientos
     const filteredTreatments = (treatments || []).filter((treatment) => {
-        // Búsqueda por nombre
         const matchesSearch = treatment.name.toLowerCase().includes(searchTerm.toLowerCase());
-        // Filtro por estado
         const matchesStatus = statusFilter === 'all' || treatment.status === statusFilter;
-        // Filtro por tipo
         const matchesType = typeFilter === 'all' || treatment.type === typeFilter;
         return matchesSearch && matchesStatus && matchesType;
     });
@@ -85,6 +102,7 @@ export function ClinicalHistoryPage() {
         currentPage * itemsPerPage
     );
 
+    // ✅ HANDLERS - Setean estados (MISMO PATRÓN)
     const handleEdit = (treatment: any) => {
         setTreatmentToEdit(treatment);
         setShowEditTreatmentForm(true);
@@ -95,16 +113,55 @@ export function ClinicalHistoryPage() {
         setCompleteDialogOpen(true);
     };
 
+    const handleStartClick = (treatment: any) => {
+        setSelectedTreatment(treatment);
+        setStartDialogOpen(true);
+    };
+
+    const handleCancelClick = (treatment: any) => {
+        setSelectedTreatment(treatment);
+        setCancelDialogOpen(true);
+    };
+
+    const handleDelete = (treatment: any) => {
+        setSelectedTreatment(treatment);
+        setDeleteDialogOpen(true);
+    };
+
+    // ✅ CONFIRMACIONES - Usan los hooks correctos
     const handleConfirmComplete = async () => {
         if (selectedTreatment) {
-            try {
-                await completeTreatment.mutateAsync(selectedTreatment.id);
-                setCompleteDialogOpen(false);
-                setSelectedTreatment(null);
-                refetchTreatments();
-            } catch (error) {
-                console.error('Error al completar tratamiento:', error);
-            }
+            await completeTreatment.mutateAsync(selectedTreatment.id);
+            setCompleteDialogOpen(false);
+            setSelectedTreatment(null);
+            refetchTreatments();
+        }
+    };
+
+    const handleConfirmStart = async () => {
+        if (selectedTreatment) {
+            await startTreatment.mutateAsync(selectedTreatment.id);
+            setStartDialogOpen(false);
+            setSelectedTreatment(null);
+            refetchTreatments();
+        }
+    };
+
+    const handleConfirmCancel = async () => {
+        if (selectedTreatment) {
+            await cancelTreatment.mutateAsync(selectedTreatment.id);
+            setCancelDialogOpen(false);
+            setSelectedTreatment(null);
+            refetchTreatments();
+        }
+    };
+
+    const handleConfirmDelete = async () => {
+        if (selectedTreatment) {
+            await clinicalHistoryService.deleteTreatment(selectedTreatment.id);
+            setDeleteDialogOpen(false);
+            setSelectedTreatment(null);
+            refetchTreatments();
         }
     };
 
@@ -181,7 +238,6 @@ export function ClinicalHistoryPage() {
                 {/* Header con foto de paciente */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                     <div className="flex flex-col md:flex-row gap-6">
-                        {/* Avatar */}
                         <div className="flex flex-col items-center gap-3">
                             <div
                                 className="h-24 w-24 rounded-full border-4 border-primary-100 overflow-hidden bg-primary-500 flex items-center justify-center"
@@ -209,7 +265,6 @@ export function ClinicalHistoryPage() {
                             </Badge>
                         </div>
 
-                        {/* Información del paciente */}
                         <div className="flex-1">
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                 <div>
@@ -308,7 +363,6 @@ export function ClinicalHistoryPage() {
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {/* Filtros */}
                         <div className="flex flex-col sm:flex-row gap-3">
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -345,16 +399,15 @@ export function ClinicalHistoryPage() {
                             </Select>
                         </div>
 
-                        {/* Tabla de tratamientos */}
                         <TreatmentTable
                             data={paginatedTreatments}
                             isLoading={treatmentsLoading}
                             patientId={patientId}
+                            onStart={handleStartClick}
                             onComplete={handleCompleteClick}
                             onEdit={handleEdit}
-                            onCancel={(treatment) => {
-                                console.log('Cancelar tratamiento:', treatment);
-                            }}
+                            onDelete={handleDelete}
+                            onCancel={handleCancelClick}
                             pagination={{
                                 currentPage,
                                 totalPages,
@@ -391,6 +444,7 @@ export function ClinicalHistoryPage() {
                     />
                 )}
 
+                {/* ✅ Diálogo Completar */}
                 {completeDialogOpen && (
                     <CompleteTreatmentDialog
                         open={completeDialogOpen}
@@ -398,6 +452,39 @@ export function ClinicalHistoryPage() {
                         treatmentName={selectedTreatment?.name || ''}
                         onConfirm={handleConfirmComplete}
                         isLoading={completeTreatment.isPending}
+                    />
+                )}
+
+                {/* ✅ Diálogo Iniciar */}
+                {startDialogOpen && (
+                    <StartTreatmentDialog
+                        open={startDialogOpen}
+                        onOpenChange={setStartDialogOpen}
+                        treatmentName={selectedTreatment?.name || ''}
+                        onConfirm={handleConfirmStart}
+                        isLoading={startTreatment.isPending}
+                    />
+                )}
+
+                {/* ✅ Diálogo Cancelar */}
+                {cancelDialogOpen && (
+                    <CancelTreatmentDialog
+                        open={cancelDialogOpen}
+                        onOpenChange={setCancelDialogOpen}
+                        treatmentName={selectedTreatment?.name || ''}
+                        onConfirm={handleConfirmCancel}
+                        isLoading={cancelTreatment.isPending}
+                    />
+                )}
+
+                {/* ✅ Diálogo Eliminar */}
+                {deleteDialogOpen && (
+                    <DeleteConfirmDialog
+                        open={deleteDialogOpen}
+                        onOpenChange={setDeleteDialogOpen}
+                        patientName={selectedTreatment?.name || ''}
+                        onConfirm={handleConfirmDelete}
+                        isLoading={false}
                     />
                 )}
 

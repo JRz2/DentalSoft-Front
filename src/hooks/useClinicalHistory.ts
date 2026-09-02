@@ -77,6 +77,54 @@ export const useCompleteTreatment = () => {
     });
 };
 
+// Iniciar tratamiento
+export const useStartTreatment = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: number) => clinicalHistoryService.startTreatment(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['treatments'] });
+            toast.success('Tratamiento iniciado exitosamente');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Error al iniciar tratamiento');
+        },
+    });
+};
+
+// Iniciar tratamiento
+export const useCancelTreatment = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: number) => clinicalHistoryService.cancelTreatment(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['treatments'] });
+            toast.success('Tratamiento iniciado exitosamente');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Error al iniciar tratamiento');
+        },
+    });
+};
+
+// Iniciar tratamiento
+export const useDeleteTreatment = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: number) => clinicalHistoryService.deleteTreatment(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['treatments'] });
+            toast.success('Tratamiento iniciado exitosamente');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Error al iniciar tratamiento');
+        },
+    });
+};
+
 // Crear sesión
 export const useCreateSession = () => {
     const queryClient = useQueryClient();
