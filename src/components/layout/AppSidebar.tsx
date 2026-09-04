@@ -1,28 +1,20 @@
 import { Link, useLocation } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Users,
-  Calendar,
-  FileText,
-  Settings,
-  LogOut,
-  Activity,
-  Menu,
-  UserCircle,
-  Shield
+import { LayoutDashboard, Users, Calendar, FileText, Settings, LogOut, Activity, Menu, UserCircle, Shield
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useEffect, useRef } from 'react';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 // Menú base para todos los usuarios
 const baseMenuItems = [
   { path: '/clinics', icon: Activity, label: 'Clinicas', roles: ['SUPER_ADMIN'] },
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
   { path: '/users', icon: Shield, label: 'Usuarios', roles: ['SUPER_ADMIN'] },
+  { path: '/profile', icon: UserCircle, label: 'Perfil', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
   { path: '/patients', icon: Users, label: 'Pacientes', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
   { path: '/treatments', icon: FileText, label: 'Tratamientos', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
-  { path: '/profile', icon: UserCircle, label: 'Perfil', roles: ['SUPER_ADMIN', 'ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
   { path: '/appointments', icon: Calendar, label: 'Citas', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
   { path: '/settings', icon: Settings, label: 'Configuración', roles: ['ADMIN'] },
 ];
@@ -36,10 +28,38 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
   const location = useLocation();
   const { logout, user } = useAuth();
 
+  // Usar el hook useMediaQuery
+  const isMobile = useMediaQuery('(max-width: 1023px)');
+
+  // Ref para guardar el estado anterior de isMobile
+  const prevIsMobile = useRef(isMobile);
+
+  console.log('🟦 AppSidebar - isOpen:', isOpen, 'isMobile:', isMobile);
+
   // Filtrar menús según el rol del usuario
   const menuItems = baseMenuItems.filter(item =>
     item.roles.includes(user?.role || '')
   );
+
+  // ESCUCHAR CAMBIOS DE PANTALLA - SIN BUCLE
+  useEffect(() => {
+    // Solo ejecutar si isMobile cambió realmente
+    if (prevIsMobile.current !== isMobile) {
+      prevIsMobile.current = isMobile;
+
+      if (isMobile) {
+        // Si cambió a móvil y está abierto, lo cerramos
+        if (isOpen) {
+          onToggle();
+        }
+      } else {
+        // Si cambió a desktop y está cerrado, lo abrimos
+        if (!isOpen) {
+          onToggle();
+        }
+      }
+    }
+  }, [isMobile]); // SOLO depende de isMobile
 
   return (
     <>
