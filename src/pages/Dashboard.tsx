@@ -3,9 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '@/hooks/useDashboard';
 import { format, startOfWeek, addDays, isSameDay, isToday, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import {
-  Clock, ChevronLeft, ChevronRight, CalendarDays, Loader2, Filter
-} from 'lucide-react';
+import { Clock, CalendarDays, Loader2, Filter } from 'lucide-react';
 import paciente from '@/assets/images/paciente.png';
 import calendario from '@/assets/images/calendario.png';
 import consultorio from '@/assets/images/consultorio.png';
@@ -34,7 +32,7 @@ const getImageUrl = (path: string | null) => {
   return path;
 };
 
-// Filtros para CITAS
+// Filtros para CITAS (3 estados)
 const STATUS_FILTERS = [
   { value: 'all', label: 'Todos', color: 'text-gray-600' },
   { value: 'SCHEDULED', label: 'Agendadas', color: 'text-blue-600' },
@@ -42,7 +40,7 @@ const STATUS_FILTERS = [
   { value: 'COMPLETED', label: 'Completadas', color: 'text-purple-600' },
 ];
 
-// Filtros para TRATAMIENTOS
+// Filtros para TRATAMIENTOS (4 estados)
 const TREATMENT_STATUS_FILTERS = [
   { value: 'all', label: 'Todos', color: 'text-gray-600' },
   { value: 'PLANNED', label: 'Planificados', color: 'text-amber-600' },
@@ -50,6 +48,25 @@ const TREATMENT_STATUS_FILTERS = [
   { value: 'COMPLETED', label: 'Completados', color: 'text-emerald-600' },
   { value: 'CANCELLED', label: 'Cancelados', color: 'text-red-600' },
 ];
+
+// Colores y etiquetas por estado de tratamiento
+const TREATMENT_STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
+  PLANNED: { color: 'bg-amber-500', bg: 'bg-amber-500', label: 'Planificados' },
+  IN_PROGRESS: { color: 'bg-blue-500', bg: 'bg-blue-500', label: 'En Progreso' },
+  COMPLETED: { color: 'bg-emerald-500', bg: 'bg-emerald-500', label: 'Completados' },
+  CANCELLED: { color: 'bg-red-500', bg: 'bg-red-500', label: 'Cancelados' },
+};
+
+// Colores y etiquetas por estado de CITA (3 estados)
+const APPOINTMENT_STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
+  SCHEDULED: { color: 'bg-blue-500', bg: 'bg-blue-500', label: 'Agendadas' },
+  CONFIRMED: { color: 'bg-green-500', bg: 'bg-green-500', label: 'Confirmadas' },
+  COMPLETED: { color: 'bg-purple-500', bg: 'bg-purple-500', label: 'Completadas' },
+};
+
+//  Orden de apilamiento (de abajo hacia arriba)
+const TREATMENT_STATUS_ORDER = ['COMPLETED', 'IN_PROGRESS', 'PLANNED', 'CANCELLED'];
+const APPOINTMENT_STATUS_ORDER = ['COMPLETED', 'CONFIRMED', 'SCHEDULED'];
 
 export const Dashboard = () => {
   const { user } = useAuth();
@@ -70,14 +87,6 @@ export const Dashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const prevWeek = () => {
-    setCurrentDate(prev => addDays(prev, -7));
-    setSelectedDate(prev => addDays(prev, -7));
-  };
-  const nextWeek = () => {
-    setCurrentDate(prev => addDays(prev, 7));
-    setSelectedDate(prev => addDays(prev, 7));
-  };
   const goToToday = () => {
     const today = new Date();
     setCurrentDate(today);
@@ -124,33 +133,64 @@ export const Dashboard = () => {
   const treatmentDays = Array.isArray(weeklyTreatments.days) ? weeklyTreatments.days : [];
 
   // ============ DATOS PARA GRÁFICO DE CITAS ============
-  const getFilteredAppointmentData = (dayData: any) => {
-    if (!dayData) return 0;
-    if (selectedStatus === 'all') {
-      return dayData.total || 0;
+  const getAppointmentDayData = (day: Date) => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const dayData = activityDays.find(d => d.date === dateStr);
+
+    if (!dayData) {
+      return { total: 0, statuses: {} as Record<string, number> };
     }
-    return dayData.statuses?.[selectedStatus] || 0;
+
+    if (selectedStatus !== 'all') {
+      const count = dayData.statuses?.[selectedStatus] || 0;
+      return {
+        total: count,
+        statuses: count > 0 ? { [selectedStatus]: count } : {}
+      };
+    }
+
+    return {
+      total: dayData.total || 0,
+      statuses: dayData.statuses || {}
+    };
   };
 
-  const weeklyPatients = activityDays.map(day => getFilteredAppointmentData(day));
-  const maxPatients = Math.max(...weeklyPatients, 0);
-  const filteredTotal = weeklyPatients.reduce((a, b) => a + b, 0);
-  const filteredMax = Math.max(...weeklyPatients, 0);
-  const filteredAverage = weeklyPatients.length > 0 ? Math.round((filteredTotal / weeklyPatients.length) * 10) / 10 : 0;
+  const appointmentData = weekDays.map(day => {
+    const dayData = getAppointmentDayData(day);
+    return dayData.total;
+  });
+
+  const maxAppointments = Math.max(...appointmentData, 0);
+  const totalAppointments = appointmentData.reduce((a, b) => a + b, 0);
+  const maxAppointmentDay = Math.max(...appointmentData, 0);
+  const avgAppointments = appointmentData.length > 0 ? Math.round((totalAppointments / appointmentData.length) * 10) / 10 : 0;
 
   // ============ DATOS PARA GRÁFICO DE TRATAMIENTOS ============
-  const getFilteredTreatmentData = (dayData: any) => {
-    if (!dayData) return 0;
-    if (selectedTreatmentStatus === 'all') {
-      return dayData.total || 0;
+  const getTreatmentDayData = (day: Date) => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const dayData = treatmentDays.find(d => d.date === dateStr);
+
+    if (!dayData) {
+      return { total: 0, statuses: {} as Record<string, number> };
     }
-    return dayData.statuses?.[selectedTreatmentStatus] || 0;
+
+    if (selectedTreatmentStatus !== 'all') {
+      const count = dayData.statuses?.[selectedTreatmentStatus] || 0;
+      return {
+        total: count,
+        statuses: count > 0 ? { [selectedTreatmentStatus]: count } : {}
+      };
+    }
+
+    return {
+      total: dayData.total || 0,
+      statuses: dayData.statuses || {}
+    };
   };
 
   const treatmentData = weekDays.map(day => {
-    const dateStr = format(day, 'yyyy-MM-dd');
-    const dayData = treatmentDays.find(d => d.date === dateStr);
-    return getFilteredTreatmentData(dayData);
+    const dayData = getTreatmentDayData(day);
+    return dayData.total;
   });
 
   const maxTreatments = Math.max(...treatmentData, 0);
@@ -253,7 +293,7 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* COLUMNA IZQUIERDA: GRÁFICOS (2 columnas) */}
         <div className="lg:col-span-2 space-y-4 md:space-y-6">
-          {/* GRÁFICO 1: NUEVOS TRATAMIENTOS */}
+          {/* GRÁFICO 1: NUEVOS TRATAMIENTOS (STACKED BAR CHART) */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6">
             <div className="flex items-center justify-between mb-4 md:mb-6">
               <div>
@@ -276,20 +316,17 @@ export const Dashboard = () => {
               </div>
             </div>
 
+            {/* Stacked Bar Chart */}
             <div className="flex items-end justify-between h-40 sm:h-52 md:h-64 gap-1 sm:gap-2">
               {weekDays.map((day, index) => {
-                const patientCount = treatmentData[index] || 0;
-                const barHeight = maxTreatments > 0 ? (patientCount / maxTreatments) * 200 : 0;
+                const dayData = getTreatmentDayData(day);
+                const total = dayData.total;
+                const barHeight = maxTreatments > 0 ? (total / maxTreatments) * 200 : 0;
                 const isTodayDate = isToday(day);
                 const dayOfWeek = getDay(day);
                 const isSunday = dayOfWeek === 0;
                 const isSaturday = dayOfWeek === 6;
                 const dayNamesShort = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-
-                let barColor = 'from-emerald-400 to-emerald-300';
-                if (isSunday) barColor = 'from-red-400 to-red-300';
-                else if (isSaturday) barColor = 'from-purple-400 to-purple-300';
-                else if (isTodayDate) barColor = 'from-emerald-600 to-emerald-500';
 
                 const getBarHeight = () => {
                   if (window.innerWidth < 640) return Math.max(barHeight * 0.5, 10);
@@ -297,30 +334,102 @@ export const Dashboard = () => {
                   return Math.max(barHeight, 16);
                 };
 
+                const segments = TREATMENT_STATUS_ORDER
+                  .map(status => ({
+                    status,
+                    count: dayData.statuses?.[status] || 0,
+                    config: TREATMENT_STATUS_CONFIG[status]
+                  }))
+                  .filter(seg => seg.count > 0);
+
+                const barHeightPx = getBarHeight();
+                const hasData = total > 0;
+
                 return (
                   <div key={index} className="flex-1 flex flex-col items-center gap-1 sm:gap-2">
-                    <span className="text-[10px] sm:text-xs font-semibold text-gray-600 mb-0.5 sm:mb-1">
-                      {patientCount}
+                    <span className={`text-[10px] sm:text-xs font-semibold ${hasData ? 'text-gray-600' : 'text-gray-300'} mb-0.5 sm:mb-1`}>
+                      {total}
                     </span>
+
+                    {/* Barra apilada con placeholder */}
                     <div
-                      className={`w-full rounded-lg transition-all duration-700 hover:scale-105 cursor-pointer relative group bg-gradient-to-t ${barColor}`}
-                      style={{ height: `${getBarHeight()}px`, minHeight: '8px' }}
+                      className="w-full rounded-lg transition-all duration-700 hover:scale-105 cursor-pointer relative group overflow-hidden"
+                      style={{ height: `${barHeightPx}px`, minHeight: '8px' }}
                     >
-                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] sm:text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        {patientCount} {patientCount === 1 ? 'tratamiento' : 'tratamientos'}
+                      {hasData ? (
+                        <div className="flex flex-col h-full w-full">
+                          {segments.map((segment, segIndex) => {
+                            const segmentHeight = total > 0 ? (segment.count / total) * 100 : 0;
+                            return (
+                              <div
+                                key={segment.status}
+                                className={`w-full ${segment.config.bg} transition-all duration-500`}
+                                style={{
+                                  height: `${segmentHeight}%`,
+                                  borderTopLeftRadius: segIndex === 0 ? '0.5rem' : '0',
+                                  borderTopRightRadius: segIndex === 0 ? '0.5rem' : '0',
+                                  borderBottomLeftRadius: segIndex === segments.length - 1 ? '0.5rem' : '0',
+                                  borderBottomRightRadius: segIndex === segments.length - 1 ? '0.5rem' : '0',
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="w-full h-full border-2 border-dashed border-gray-200 bg-gray-50/50 flex items-center justify-center">
+                          <span className="text-[10px] text-gray-300">—</span>
+                        </div>
+                      )}
+
+                      {/* Tooltip enriquecido */}
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full bg-gray-800 text-white text-[10px] sm:text-xs px-2.5 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20 shadow-lg">
+                        <div className="font-semibold mb-1">
+                          {dayNamesShort[index]} {format(day, 'd')}
+                        </div>
+                        {hasData ? (
+                          <>
+                            <div className="text-[9px] sm:text-[10px] text-gray-300 mb-1">
+                              Total: {total} {total === 1 ? 'tratamiento' : 'tratamientos'}
+                            </div>
+                            <div className="space-y-0.5">
+                              {segments.map(segment => (
+                                <div key={segment.status} className="flex items-center gap-1.5">
+                                  <div className={`w-2 h-2 rounded-full ${segment.config.bg}`} />
+                                  <span className="text-[9px] sm:text-[10px]">
+                                    {segment.config.label}: {segment.count}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-[9px] sm:text-[10px] text-gray-300">
+                            Sin tratamientos
+                          </div>
+                        )}
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-800"></div>
                       </div>
                     </div>
+
+                    {/* Día */}
                     <span className={`text-[10px] sm:text-xs font-medium ${isTodayDate ? 'text-emerald-600 font-bold' : isSunday ? 'text-red-500 font-bold' : isSaturday ? 'text-purple-500' : 'text-gray-500'}`}>
                       {dayNamesShort[index]}
                     </span>
                     <span className={`text-[8px] sm:text-[10px] ${isTodayDate ? 'text-emerald-400' : isSunday ? 'text-red-400' : 'text-gray-400'}`}>
                       {format(day, 'd')}
                     </span>
+
+                    <div className="flex flex-col items-center mt-0.5">
+                      {isTodayDate && (
+                        <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
+                      )}
+                    </div>
                   </div>
                 );
               })}
             </div>
 
+            {/* Estadísticas */}
             <div className="grid grid-cols-4 gap-2 sm:gap-3 mt-4 pt-4 border-t border-gray-100">
               <div className="text-center">
                 <p className="text-base sm:text-lg font-bold text-gray-900">{totalTreatments}</p>
@@ -342,37 +451,28 @@ export const Dashboard = () => {
               </div>
             </div>
 
-            {/* ✅ Desglose por estado de tratamientos */}
-            {selectedTreatmentStatus === 'all' && weeklyTreatments.statusBreakdown && weeklyTreatments.statusBreakdown.length > 0 && (
-              <div className="flex flex-wrap items-center gap-4 mt-4 pt-3 border-t border-gray-100">
-                <span className="text-xs text-gray-500">Desglose por estado:</span>
-                {weeklyTreatments.statusBreakdown.map((item) => {
-                  const statusColors: Record<string, string> = {
-                    PLANNED: 'bg-amber-500',
-                    IN_PROGRESS: 'bg-blue-500',
-                    COMPLETED: 'bg-emerald-500',
-                    CANCELLED: 'bg-red-500',
-                  };
-                  const statusLabels: Record<string, string> = {
-                    PLANNED: 'Planificados',
-                    IN_PROGRESS: 'En Progreso',
-                    COMPLETED: 'Completados',
-                    CANCELLED: 'Cancelados',
-                  };
-                  return (
-                    <div key={item.status} className="flex items-center gap-1.5">
-                      <div className={`w-3 h-3 rounded ${statusColors[item.status] || 'bg-gray-400'}`} />
-                      <span className="text-xs text-gray-600">
-                        {statusLabels[item.status] || item.status} ({item.count})
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {/* Leyenda siempre visible */}
+            <div className="flex flex-wrap items-center gap-4 mt-4 pt-3 border-t border-gray-100">
+              <span className="text-xs text-gray-500 font-medium">Leyenda:</span>
+              {Object.entries(TREATMENT_STATUS_CONFIG).map(([status, config]) => {
+                const count = weeklyTreatments.statusBreakdown?.find(
+                  item => item.status === status
+                )?.count || 0;
+
+                return (
+                  <div key={status} className="flex items-center gap-1.5">
+                    <div className={`w-3 h-3 rounded ${config.bg}`} />
+                    <span className="text-xs text-gray-600">
+                      {config.label}
+                      {count > 0 && ` (${count})`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          {/* GRÁFICO 2: CITAS ATENDIDAS */}
+          {/* GRÁFICO 2: CITAS ATENDIDAS (STACKED BAR CHART - 3 ESTADOS) */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-6">
             <div className="flex items-center justify-between mb-4 md:mb-6">
               <div>
@@ -395,20 +495,17 @@ export const Dashboard = () => {
               </div>
             </div>
 
+            {/* Stacked Bar Chart */}
             <div className="flex items-end justify-between h-40 sm:h-52 md:h-64 gap-1 sm:gap-2">
               {weekDays.map((day, index) => {
-                const patientCount = weeklyPatients[index] || 0;
-                const barHeight = maxPatients > 0 ? (patientCount / maxPatients) * 200 : 0;
+                const dayData = getAppointmentDayData(day);
+                const total = dayData.total;
+                const barHeight = maxAppointments > 0 ? (total / maxAppointments) * 200 : 0;
                 const isTodayDate = isToday(day);
                 const dayOfWeek = getDay(day);
                 const isSunday = dayOfWeek === 0;
                 const isSaturday = dayOfWeek === 6;
                 const dayNamesShort = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-
-                let barColor = 'from-blue-400 to-blue-300';
-                if (isSunday) barColor = 'from-red-400 to-red-300';
-                else if (isSaturday) barColor = 'from-purple-400 to-purple-300';
-                else if (isTodayDate) barColor = 'from-blue-600 to-blue-400';
 
                 const getBarHeight = () => {
                   if (window.innerWidth < 640) return Math.max(barHeight * 0.5, 10);
@@ -416,25 +513,95 @@ export const Dashboard = () => {
                   return Math.max(barHeight, 16);
                 };
 
+                const segments = APPOINTMENT_STATUS_ORDER
+                  .map(status => ({
+                    status,
+                    count: dayData.statuses?.[status] || 0,
+                    config: APPOINTMENT_STATUS_CONFIG[status]
+                  }))
+                  .filter(seg => seg.count > 0);
+
+                const barHeightPx = getBarHeight();
+                const hasData = total > 0;
+
                 return (
                   <div key={index} className="flex-1 flex flex-col items-center gap-1 sm:gap-2">
-                    <span className="text-[10px] sm:text-xs font-semibold text-gray-600 mb-0.5 sm:mb-1">
-                      {patientCount}
+                    <span className={`text-[10px] sm:text-xs font-semibold ${hasData ? 'text-gray-600' : 'text-gray-300'} mb-0.5 sm:mb-1`}>
+                      {total}
                     </span>
+
+                    {/* Barra apilada con placeholder */}
                     <div
-                      className={`w-full rounded-lg transition-all duration-700 hover:scale-105 cursor-pointer relative group bg-gradient-to-t ${barColor}`}
-                      style={{ height: `${getBarHeight()}px`, minHeight: '8px' }}
+                      className="w-full rounded-lg transition-all duration-700 hover:scale-105 cursor-pointer relative group overflow-hidden"
+                      style={{ height: `${barHeightPx}px`, minHeight: '8px' }}
                     >
-                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] sm:text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        {patientCount} {patientCount === 1 ? 'cita' : 'citas'}
+                      {hasData ? (
+                        <div className="flex flex-col h-full w-full">
+                          {segments.map((segment, segIndex) => {
+                            const segmentHeight = total > 0 ? (segment.count / total) * 100 : 0;
+                            return (
+                              <div
+                                key={segment.status}
+                                className={`w-full ${segment.config.bg} transition-all duration-500`}
+                                style={{
+                                  height: `${segmentHeight}%`,
+                                  borderTopLeftRadius: segIndex === 0 ? '0.5rem' : '0',
+                                  borderTopRightRadius: segIndex === 0 ? '0.5rem' : '0',
+                                  borderBottomLeftRadius: segIndex === segments.length - 1 ? '0.5rem' : '0',
+                                  borderBottomRightRadius: segIndex === segments.length - 1 ? '0.5rem' : '0',
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="w-full h-full border-2 border-dashed border-gray-200 bg-gray-50/50 flex items-center justify-center">
+                          <span className="text-[10px] text-gray-300">—</span>
+                        </div>
+                      )}
+
+                      {/* Tooltip enriquecido */}
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full bg-gray-800 text-white text-[10px] sm:text-xs px-2.5 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-20 shadow-lg">
+                        <div className="font-semibold mb-1">
+                          {dayNamesShort[index]} {format(day, 'd')}
+                        </div>
+                        {hasData ? (
+                          <>
+                            <div className="text-[9px] sm:text-[10px] text-gray-300 mb-1">
+                              Total: {total} {total === 1 ? 'cita' : 'citas'}
+                            </div>
+                            <div className="space-y-0.5">
+                              {segments.map(segment => (
+                                <div key={segment.status} className="flex items-center gap-1.5">
+                                  <div className={`w-2 h-2 rounded-full ${segment.config.bg}`} />
+                                  <span className="text-[9px] sm:text-[10px]">
+                                    {segment.config.label}: {segment.count}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-[9px] sm:text-[10px] text-gray-300">
+                            Sin citas
+                          </div>
+                        )}
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-800"></div>
                       </div>
                     </div>
+
                     <span className={`text-[10px] sm:text-xs font-medium ${isTodayDate ? 'text-blue-600 font-bold' : isSunday ? 'text-red-500 font-bold' : isSaturday ? 'text-purple-500' : 'text-gray-500'}`}>
                       {dayNamesShort[index]}
                     </span>
                     <span className={`text-[8px] sm:text-[10px] ${isTodayDate ? 'text-blue-400' : isSunday ? 'text-red-400' : 'text-gray-400'}`}>
                       {format(day, 'd')}
                     </span>
+
+                    <div className="flex flex-col items-center mt-0.5">
+                      {isTodayDate && (
+                        <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" />
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -442,48 +609,44 @@ export const Dashboard = () => {
 
             <div className="grid grid-cols-4 gap-2 sm:gap-3 mt-4 pt-4 border-t border-gray-100">
               <div className="text-center">
-                <p className="text-base sm:text-lg font-bold text-gray-900">{filteredTotal}</p>
+                <p className="text-base sm:text-lg font-bold text-gray-900">{totalAppointments}</p>
                 <p className="text-[8px] sm:text-[10px] text-gray-500">Total citas</p>
               </div>
               <div className="text-center">
-                <p className="text-base sm:text-lg font-bold text-green-600">{filteredMax}</p>
+                <p className="text-base sm:text-lg font-bold text-green-600">{maxAppointmentDay}</p>
                 <p className="text-[8px] sm:text-[10px] text-gray-500">Pico máximo</p>
               </div>
               <div className="text-center">
                 <p className="text-base sm:text-lg font-bold text-blue-600">
-                  {weeklyPatients[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1] || 0}
+                  {appointmentData[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1] || 0}
                 </p>
                 <p className="text-[8px] sm:text-[10px] text-gray-500">Hoy</p>
               </div>
               <div className="text-center">
-                <p className="text-base sm:text-lg font-bold text-yellow-600">{filteredAverage}</p>
+                <p className="text-base sm:text-lg font-bold text-yellow-600">{avgAppointments}</p>
                 <p className="text-[8px] sm:text-[10px] text-gray-500">Promedio/día</p>
               </div>
             </div>
 
-            {weeklyActivity.statusBreakdown && weeklyActivity.statusBreakdown.length > 0 && (
-              <div className="flex flex-wrap items-center gap-4 mt-4 pt-3 border-t border-gray-100">
-                <span className="text-xs text-gray-500">Desglose por estado:</span>
-                {weeklyActivity.statusBreakdown.map((item) => {
-                  const statusColors: Record<string, string> = {
-                    SCHEDULED: 'bg-blue-500',
-                    CONFIRMED: 'bg-green-500',
-                    COMPLETED: 'bg-purple-500',
-                  };
-                  return (
-                    <div key={item.status} className="flex items-center gap-1.5">
-                      <div className={`w-3 h-3 rounded ${statusColors[item.status] || 'bg-gray-400'}`} />
-                      <span className="text-xs text-gray-600">
-                        {item.status === 'SCHEDULED' ? 'Agendadas' :
-                          item.status === 'CONFIRMED' ? 'Confirmadas' :
-                            item.status === 'COMPLETED' ? 'Completadas' : item.status}
-                        ({item.count})
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {/* Leyenda siempre visible */}
+            <div className="flex flex-wrap items-center gap-4 mt-4 pt-3 border-t border-gray-100">
+              <span className="text-xs text-gray-500 font-medium">Leyenda:</span>
+              {Object.entries(APPOINTMENT_STATUS_CONFIG).map(([status, config]) => {
+                const count = weeklyActivity.statusBreakdown?.find(
+                  item => item.status === status
+                )?.count || 0;
+
+                return (
+                  <div key={status} className="flex items-center gap-1.5">
+                    <div className={`w-3 h-3 rounded ${config.bg}`} />
+                    <span className="text-xs text-gray-600">
+                      {config.label}
+                      {count > 0 && ` (${count})`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -496,14 +659,8 @@ export const Dashboard = () => {
                 {format(currentDate, 'MMMM yyyy', { locale: es })}
               </h3>
               <div className="flex items-center gap-0.5 md:gap-1">
-                <button onClick={prevWeek} className="p-1 md:p-1.5 hover:bg-gray-100 rounded-lg">
-                  <ChevronLeft className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
-                </button>
                 <button onClick={goToToday} className="text-[10px] md:text-xs text-primary-600 hover:text-primary-700 px-1.5 md:px-2 py-0.5 md:py-1 hover:bg-primary-50 rounded-lg">
                   Hoy
-                </button>
-                <button onClick={nextWeek} className="p-1 md:p-1.5 hover:bg-gray-100 rounded-lg">
-                  <ChevronRight className="h-3 w-3 md:h-4 md:w-4 text-gray-500" />
                 </button>
               </div>
             </div>

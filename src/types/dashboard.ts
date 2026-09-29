@@ -20,9 +20,10 @@ export interface StatusBreakdown {
 }
 
 export interface DayStatuses {
-  SCHEDULED: number;
-  COMPLETED: number;
-  CONFIRMED: number;
+  SCHEDULED?: number;
+  CONFIRMED?: number;
+  COMPLETED?: number;
+  [key: string]: number | undefined;
 }
 
 export interface WeeklyDayDetail {
@@ -38,6 +39,35 @@ export interface WeeklyActivity {
   total: number;
   statusBreakdown: StatusBreakdown[];
   days: WeeklyDayDetail[];
+}
+
+export interface TreatmentStatusBreakdown {
+  status: string;
+  count: number;
+  percentage: number;
+}
+
+export interface TreatmentDayStatuses {
+  PLANNED?: number;
+  IN_PROGRESS?: number;
+  COMPLETED?: number;
+  CANCELLED?: number;
+  [key: string]: number | undefined;
+}
+
+export interface TreatmentDayDetail {
+  date: string;
+  dayOfWeek: number;
+  statuses: TreatmentDayStatuses;
+  total: number;
+}
+
+export interface WeeklyTreatmentsResponse {
+  weekStart: string;
+  weekEnd: string;
+  total: number;
+  statusBreakdown: TreatmentStatusBreakdown[];
+  days: TreatmentDayDetail[];
 }
 
 export interface DashboardAppointment {
@@ -115,42 +145,3 @@ export const initialDashboardData: DashboardData = {
     totalAppointments: 0
   }
 };
-
-export interface TreatmentWeekly {
-  id: number;
-  name: string;
-  description: string | null;
-  type: string;
-  status: string;
-  patientName: string;
-  doctorName: string;
-  totalCost: number;
-  createdAt: string;
-  date: string;
-  time: string;
-};
-
-export interface TreatmentStatusBreakdown {
-  status: string;
-  count: number;
-  percentage: number;
-}
-
-export interface TreatmentDayStatuses {
-  [key: string]: number; 
-}
-
-export interface TreatmentDayDetail {
-  date: string;
-  dayOfWeek: number;
-  statuses: TreatmentDayStatuses;
-  total: number;
-}
-
-export interface WeeklyTreatmentsResponse {
-  weekStart: string;
-  weekEnd: string;
-  total: number;
-  statusBreakdown: TreatmentStatusBreakdown[];
-  days: TreatmentDayDetail[];
-}
