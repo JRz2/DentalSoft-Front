@@ -39,7 +39,6 @@ export const useCreateAppointment = () => {
     return useMutation({
         mutationFn: (data: CreateAppointmentDto) => appointmentService.create(data),
         onSuccess: () => {
-            toast.success('Cita creada correctamente');
             queryClient.invalidateQueries({ queryKey: ['appointments'] });
         },
         onError: (error: any) => {

@@ -3,17 +3,16 @@ import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '@/hooks/useDashboard';
 import { format, startOfWeek, addDays, isSameDay, isToday, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Clock, CalendarDays, Loader2, Filter } from 'lucide-react';
-import paciente from '@/assets/images/paciente.png';
-import calendario from '@/assets/images/calendario.png';
-import consultorio from '@/assets/images/consultorio.png';
-import pagos from '@/assets/images/pagos.png';
+import { Clock, CalendarDays, Loader2, Filter, Users, CalendarClock, ClipboardList, DollarSign } from 'lucide-react';
 import doctor from '@/assets/images/doctor.png';
 
-const getInitials = (name: string) => {
+const getInitials = (name?: string) => {
+  if (!name || !name.trim()) return '?';
   return name
+    .trim()
     .split(' ')
     .map(word => word[0])
+    .filter(Boolean)
     .slice(0, 2)
     .join('')
     .toUpperCase();
@@ -246,7 +245,7 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* TARJETAS DE ESTADÍSTICAS */}
+      {/* TARJETAS DE ESTADÍSTICAS — íconos en vez de ilustraciones 3D */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-5 hover:shadow-md transition-shadow relative overflow-hidden">
           <div>
@@ -255,7 +254,9 @@ export const Dashboard = () => {
               {statistics.totalPatients}
             </p>
           </div>
-          <img src={paciente} alt="paciente" className="absolute bottom-0 right-0 w-12 h-12 md:w-16 md:h-16 object-contain opacity-80" />
+          <div className="absolute bottom-0 right-0 p-2 md:p-3">
+            <Users className="w-8 h-8 md:w-12 md:h-12 text-gray-500 opacity-20" />
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-5 hover:shadow-md transition-shadow relative overflow-hidden">
@@ -265,7 +266,9 @@ export const Dashboard = () => {
               {statistics.pendingAppointments}
             </p>
           </div>
-          <img src={calendario} alt="calendario" className="absolute bottom-0 right-0 w-12 h-12 md:w-16 md:h-16 object-contain opacity-80" />
+          <div className="absolute bottom-0 right-0 p-2 md:p-3">
+            <CalendarClock className="w-8 h-8 md:w-12 md:h-12 text-blue-500 opacity-20" />
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-5 hover:shadow-md transition-shadow relative overflow-hidden">
@@ -275,7 +278,9 @@ export const Dashboard = () => {
               {statistics.activeTreatments}
             </p>
           </div>
-          <img src={consultorio} alt="consultorio" className="absolute bottom-0 right-0 w-12 h-12 md:w-16 md:h-16 object-contain opacity-80" />
+          <div className="absolute bottom-0 right-0 p-2 md:p-3">
+            <ClipboardList className="w-8 h-8 md:w-12 md:h-12 text-emerald-500 opacity-20" />
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-5 hover:shadow-md transition-shadow relative overflow-hidden">
@@ -285,7 +290,9 @@ export const Dashboard = () => {
               ${statistics.monthlyIncome.toLocaleString()}
             </p>
           </div>
-          <img src={pagos} alt="pagos" className="absolute bottom-0 right-0 w-12 h-12 md:w-16 md:h-16 object-contain opacity-80" />
+          <div className="absolute bottom-0 right-0 p-2 md:p-3">
+            <DollarSign className="w-8 h-8 md:w-12 md:h-12 text-green-500 opacity-20" />
+          </div>
         </div>
       </div>
 

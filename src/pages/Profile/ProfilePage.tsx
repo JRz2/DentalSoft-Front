@@ -7,11 +7,15 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { User, Mail, Phone, Stethoscope, Key, Save, Camera, Shield, IdCard, Loader2 } from 'lucide-react';
+import {
+    User, Mail, Phone, Stethoscope, Key, Save, Camera, Shield, Loader2,
+    Pencil, Eye, EyeOff, CheckCircle2, AlertCircle, IdCard,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/services/api';
+import { cn } from '@/lib/utils';
+import doctorImg from '@/assets/images/doctor.png';
 
-// Función para obtener URL completa de la imagen
 const getImageUrl = (path: string) => {
     if (!path) return '';
     if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -25,6 +29,12 @@ const getImageUrl = (path: string) => {
     return path;
 };
 
+const roleLabels: Record<string, string> = {
+    ADMIN: 'Administrador',
+    DOCTOR: 'Doctor',
+    RECEPTIONIST: 'Recepcionista',
+};
+
 export function ProfilePage() {
     const { user } = useAuth();
     const { data: profile, isLoading, refetch } = useUserProfile();
@@ -33,7 +43,6 @@ export function ProfilePage() {
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Estados para el formulario de perfil
     const [profileForm, setProfileForm] = useState({
         name: '',
         email: '',
@@ -42,7 +51,6 @@ export function ProfilePage() {
         licenseNumber: '',
     });
 
-    // Estados para el formulario de contraseña
     const [passwordForm, setPasswordForm] = useState({
         currentPassword: '',
         newPassword: '',
@@ -51,7 +59,10 @@ export function ProfilePage() {
     const [passwordErrors, setPasswordErrors] = useState<{ [key: string]: string }>({});
     const [isEditing, setIsEditing] = useState(false);
 
-    // Cargar datos del perfil
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
     useEffect(() => {
         if (profile) {
             setProfileForm({
@@ -110,28 +121,43 @@ export function ProfilePage() {
         setPasswordErrors({});
 
         const errors: { [key: string]: string } = {};
-        if (passwordForm.newPassword.length < 6) {
+
+        if (!passwordForm.currentPassword) {
+            errors.currentPassword = 'Ingresa tu contraseña actual';
+        }
+        if (!passwordForm.newPassword) {
+            errors.newPassword = 'Ingresa una nueva contraseña';
+        } else if (passwordForm.newPassword.length < 6) {
             errors.newPassword = 'La contraseña debe tener al menos 6 caracteres';
         }
         if (passwordForm.newPassword !== passwordForm.confirmPassword) {
             errors.confirmPassword = 'Las contraseñas no coinciden';
         }
+
         if (Object.keys(errors).length > 0) {
             setPasswordErrors(errors);
             return;
         }
 
-        await changePassword.mutateAsync({
-            currentPassword: passwordForm.currentPassword,
-            newPassword: passwordForm.newPassword,
-            confirmPassword: passwordForm.confirmPassword,
-        });
+        try {
+            await changePassword.mutateAsync({
+                currentPassword: passwordForm.currentPassword,
+                newPassword: passwordForm.newPassword,
+                confirmPassword: passwordForm.confirmPassword,
+            });
 
-        setPasswordForm({
-            currentPassword: '',
-            newPassword: '',
-            confirmPassword: '',
-        });
+            setPasswordForm({
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: '',
+            });
+            setShowCurrentPassword(false);
+            setShowNewPassword(false);
+            setShowConfirmPassword(false);
+            setPasswordErrors({});
+        } catch (error) {
+            console.error('Error al cambiar contraseña:', error);
+        }
     };
 
     const getInitials = (name: string) => {
@@ -142,6 +168,12 @@ export function ProfilePage() {
             .join('')
             .toUpperCase();
     };
+
+    const passwordsMatch = passwordForm.newPassword.length >= 6
+        && passwordForm.newPassword === passwordForm.confirmPassword;
+
+    const roleValue = profile?.role || user?.role || '';
+    const roleLabel = roleLabels[roleValue] || roleValue;
 
     if (isLoading) {
         return (
@@ -161,27 +193,34 @@ export function ProfilePage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900">Mi Perfil</h1>
-                <p className="text-sm text-gray-500 mt-1">
-                    Gestiona tu información personal y seguridad
-                </p>
+            <div className="flex items-center gap-3">
+                <img
+                    src={doctorImg}
+                    alt="doctor"
+                    className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover shrink-0"
+                />
+                <div className="min-w-0">
+                    <h1 className="text-xl md:text-2xl font-bold text-gray-900">Mi Perfil</h1>
+                    <p className="text-xs md:text-sm text-gray-500 mt-1">
+                        Gestiona tu información personal y seguridad
+                    </p>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Columna izquierda - Información de usuario */}
+                {/* Columna izquierda */}
                 <div className="space-y-6">
                     {/* Tarjeta de perfil */}
                     <Card>
                         <CardContent className="pt-6">
                             <div className="flex flex-col items-center text-center">
-                                {/* Avatar clickeable */}
+                                {/* Avatar */}
                                 <div className="relative">
                                     <div
                                         className="cursor-pointer group"
                                         onClick={() => fileInputRef.current?.click()}
                                     >
-                                        <Avatar className="h-32 w-32 border-4 border-primary-100 transition-opacity group-hover:opacity-80">
+                                        <Avatar className="h-28 w-28 md:h-32 md:w-32 border-4 border-primary-100 transition-opacity group-hover:opacity-80">
                                             {profile?.photoUrl && (
                                                 <AvatarImage
                                                     src={getImageUrl(profile.photoUrl)}
@@ -189,11 +228,10 @@ export function ProfilePage() {
                                                     className="object-cover"
                                                 />
                                             )}
-                                            <AvatarFallback className="bg-gradient-to-r from-primary-500 to-primary-600 text-white text-3xl">
+                                            <AvatarFallback className="bg-gradient-to-r from-primary-500 to-primary-600 text-white text-2xl md:text-3xl">
                                                 {getInitials(profile?.name || user?.name || 'U')}
                                             </AvatarFallback>
                                         </Avatar>
-                                        {/* Overlay al hacer hover */}
                                         <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                             {isUploading ? (
                                                 <Loader2 className="h-8 w-8 text-white animate-spin" />
@@ -202,6 +240,23 @@ export function ProfilePage() {
                                             )}
                                         </div>
                                     </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploading}
+                                        className="absolute bottom-1 right-1 h-9 w-9 rounded-full bg-gray-900/90 hover:bg-gray-900 backdrop-blur-sm flex items-center justify-center shadow-lg ring-2 ring-white/80 hover:ring-white transition-all hover:scale-105 disabled:opacity-60 disabled:hover:scale-100"
+                                        title="Cambiar foto de perfil"
+                                    >
+                                        {isUploading ? (
+                                            <Loader2 className="h-4 w-4 animate-spin text-white" strokeWidth={2.5} />
+                                        ) : (
+                                            <Camera
+                                                className="h-4 w-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
+                                                stroke="white"
+                                                strokeWidth={2.5}
+                                            />
+                                        )}
+                                    </button>
                                     <input
                                         ref={fileInputRef}
                                         type="file"
@@ -210,22 +265,29 @@ export function ProfilePage() {
                                         className="hidden"
                                     />
                                 </div>
-                                <h2 className="mt-4 text-xl font-semibold text-gray-900">
+
+                                <h2 className="mt-4 text-lg md:text-xl font-semibold text-gray-900 break-words max-w-full">
                                     {profile?.name || user?.name}
                                 </h2>
-                                <p className="text-sm text-gray-500">{profile?.role || user?.role}</p>
-                                <div className="mt-4 w-full">
-                                    <div className="bg-gray-50 rounded-lg p-3 text-sm">
-                                        <p className="text-gray-600">
-                                            <span className="font-medium">ID:</span> {profile?.id || user?.id}
-                                        </p>
-                                        <p className="text-gray-600 mt-1">
-                                            <span className="font-medium">Email:</span> {profile?.email || user?.email}
-                                        </p>
+                                <p className="text-sm text-gray-500">{roleLabel}</p>
+
+                                <div className="mt-4 w-full space-y-2">
+                                    <div className="bg-gray-50 rounded-xl p-3 text-sm space-y-2">
+                                        <div className="flex items-center gap-2 text-gray-600">
+                                            <Mail className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                            <span className="truncate">{profile?.email || user?.email}</span>
+                                        </div>
                                         {profile?.specialty && (
-                                            <p className="text-gray-600 mt-1">
-                                                <span className="font-medium">Especialidad:</span> {profile.specialty}
-                                            </p>
+                                            <div className="flex items-center gap-2 text-gray-600">
+                                                <Stethoscope className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                                <span className="truncate">{profile.specialty}</span>
+                                            </div>
+                                        )}
+                                        {profile?.licenseNumber && (
+                                            <div className="flex items-center gap-2 text-gray-600">
+                                                <IdCard className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                                <span className="truncate">Matrícula {profile.licenseNumber}</span>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -233,7 +295,7 @@ export function ProfilePage() {
                         </CardContent>
                     </Card>
 
-                    {/* Tarjeta de información adicional */}
+                    {/* Tarjeta de seguridad */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-sm font-medium text-gray-500 flex items-center gap-2">
@@ -241,143 +303,177 @@ export function ProfilePage() {
                                 Seguridad
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-500">Último acceso</span>
-                                <span className="text-gray-700">{new Date().toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500">Rol</span>
-                                <span className="text-gray-700 font-medium">{profile?.role || user?.role}</span>
+                        <CardContent>
+                            <div className="flex items-center justify-between text-sm gap-2">
+                                <span className="text-gray-500">Rol asignado</span>
+                                <span className="text-gray-900 font-medium bg-primary-50 text-primary-700 px-2.5 py-0.5 rounded-full text-xs shrink-0">
+                                    {roleLabel}
+                                </span>
                             </div>
                         </CardContent>
                     </Card>
                 </div>
 
-                {/* Columna derecha - Formularios */}
+                {/* Columna derecha */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Formulario de información personal */}
                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <div>
-                                <CardTitle className="flex items-center gap-2">
-                                    <User className="h-5 w-5 text-primary-600" />
-                                    Información Personal
-                                </CardTitle>
-                                <p className="text-sm text-gray-500 mt-1">
-                                    Actualiza tus datos personales
-                                </p>
+                        <CardHeader>
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="min-w-0">
+                                    <CardTitle className="flex items-center gap-2">
+                                        <User className="h-5 w-5 text-primary-600 shrink-0" />
+                                        <span className="truncate">Información Personal</span>
+                                    </CardTitle>
+                                    <p className="text-sm text-gray-500 mt-1">
+                                        Actualiza tus datos personales
+                                    </p>
+                                </div>
+                                {!isEditing && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsEditing(true)}
+                                        className="gap-2 shrink-0 self-start sm:self-auto"
+                                    >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                        Editar
+                                    </Button>
+                                )}
                             </div>
-                            {!isEditing && (
-                                <Button variant="outline" onClick={() => setIsEditing(true)}>
-                                    Editar
-                                </Button>
-                            )}
                         </CardHeader>
                         <CardContent>
                             {isEditing ? (
                                 <form onSubmit={handleProfileSubmit} className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-2">
-                                            <Label htmlFor="name">Nombre completo</Label>
-                                            <div className="relative">
-                                                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                                <Input
-                                                    id="name"
-                                                    value={profileForm.name}
-                                                    onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
-                                                    className="pl-9"
-                                                />
-                                            </div>
+                                            <Label htmlFor="name" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                                <User className="h-4 w-4 text-gray-400" />
+                                                Nombre completo
+                                            </Label>
+                                            <Input
+                                                id="name"
+                                                value={profileForm.name}
+                                                onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                                                className="w-full"
+                                            />
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="email">Correo electrónico</Label>
-                                            <div className="relative">
-                                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                                <Input
-                                                    id="email"
-                                                    type="email"
-                                                    value={profileForm.email}
-                                                    onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                                                    className="pl-9"
-                                                />
-                                            </div>
+                                            <Label htmlFor="email" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                                <Mail className="h-4 w-4 text-gray-400" />
+                                                Correo electrónico
+                                            </Label>
+                                            <Input
+                                                id="email"
+                                                type="email"
+                                                value={profileForm.email}
+                                                onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                                                className="w-full"
+                                            />
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="phoneNumber">Teléfono</Label>
-                                            <div className="relative">
-                                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                                <Input
-                                                    id="phoneNumber"
-                                                    value={profileForm.phoneNumber}
-                                                    onChange={(e) => setProfileForm({ ...profileForm, phoneNumber: e.target.value })}
-                                                    className="pl-9"
-                                                />
-                                            </div>
+                                            <Label htmlFor="phoneNumber" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                                <Phone className="h-4 w-4 text-gray-400" />
+                                                Teléfono
+                                            </Label>
+                                            <Input
+                                                id="phoneNumber"
+                                                value={profileForm.phoneNumber}
+                                                onChange={(e) => setProfileForm({ ...profileForm, phoneNumber: e.target.value })}
+                                                className="w-full"
+                                            />
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="specialty">Especialidad</Label>
-                                            <div className="relative">
-                                                <Stethoscope className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                                <Input
-                                                    id="specialty"
-                                                    value={profileForm.specialty}
-                                                    onChange={(e) => setProfileForm({ ...profileForm, specialty: e.target.value })}
-                                                    className="pl-9"
-                                                />
-                                            </div>
+                                            <Label htmlFor="specialty" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                                <Stethoscope className="h-4 w-4 text-gray-400" />
+                                                Especialidad
+                                            </Label>
+                                            <Input
+                                                id="specialty"
+                                                value={profileForm.specialty}
+                                                onChange={(e) => setProfileForm({ ...profileForm, specialty: e.target.value })}
+                                                className="w-full"
+                                            />
                                         </div>
 
-                                        <div className="space-y-2">
-                                            <Label htmlFor="licenseNumber">Número de licencia</Label>
-                                            <div className="relative">
-                                                <IdCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                                <Input
-                                                    id="licenseNumber"
-                                                    value={profileForm.licenseNumber}
-                                                    onChange={(e) => setProfileForm({ ...profileForm, licenseNumber: e.target.value })}
-                                                    className="pl-9"
-                                                />
-                                            </div>
+                                        <div className="space-y-2 md:col-span-2">
+                                            <Label htmlFor="licenseNumber" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                                <IdCard className="h-4 w-4 text-gray-400" />
+                                                Matrícula profesional
+                                            </Label>
+                                            <Input
+                                                id="licenseNumber"
+                                                value={profileForm.licenseNumber}
+                                                onChange={(e) => setProfileForm({ ...profileForm, licenseNumber: e.target.value })}
+                                                className="w-full"
+                                                placeholder="Ej: MP-12345"
+                                            />
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-end gap-2 pt-4">
-                                        <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
+                                    {/* Botones apilables en móvil */}
+                                    <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 mt-4 border-t">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setIsEditing(false)}
+                                            className="w-full sm:w-auto sm:px-6"
+                                        >
                                             Cancelar
                                         </Button>
-                                        <Button type="submit" disabled={updateProfile.isPending}>
-                                            <Save className="h-4 w-4 mr-2" />
-                                            {updateProfile.isPending ? 'Guardando...' : 'Guardar Cambios'}
+                                        <Button
+                                            type="submit"
+                                            disabled={updateProfile.isPending}
+                                            className="w-full sm:w-auto sm:px-8 gap-2 bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-lg shadow-emerald-200/50 hover:shadow-emerald-300/50 transition-all duration-200 disabled:opacity-50"
+                                        >
+                                            {updateProfile.isPending ? (
+                                                <>
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                    Guardando...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Save className="h-4 w-4" />
+                                                    Guardar Cambios
+                                                </>
+                                            )}
                                         </Button>
                                     </div>
                                 </form>
                             ) : (
-                                <div className="space-y-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <p className="text-xs text-gray-500">Nombre completo</p>
-                                            <p className="text-gray-900 font-medium">{profileForm.name || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500">Correo electrónico</p>
-                                            <p className="text-gray-900 font-medium">{profileForm.email || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500">Teléfono</p>
-                                            <p className="text-gray-900 font-medium">{profileForm.phoneNumber || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500">Especialidad</p>
-                                            <p className="text-gray-900 font-medium">{profileForm.specialty || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-500">Número de licencia</p>
-                                            <p className="text-gray-900 font-medium">{profileForm.licenseNumber || '-'}</p>
-                                        </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="bg-gray-50 rounded-xl p-4 space-y-1">
+                                        <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                                            <User className="h-3 w-3" /> Nombre completo
+                                        </p>
+                                        <p className="text-gray-900 font-medium break-words">{profileForm.name || '-'}</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-xl p-4 space-y-1">
+                                        <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                                            <Mail className="h-3 w-3" /> Correo electrónico
+                                        </p>
+                                        <p className="text-gray-900 font-medium truncate">{profileForm.email || '-'}</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-xl p-4 space-y-1">
+                                        <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                                            <Phone className="h-3 w-3" /> Teléfono
+                                        </p>
+                                        <p className="text-gray-900 font-medium">{profileForm.phoneNumber || '-'}</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-xl p-4 space-y-1">
+                                        <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                                            <Stethoscope className="h-3 w-3" /> Especialidad
+                                        </p>
+                                        <p className="text-gray-900 font-medium">{profileForm.specialty || '-'}</p>
+                                    </div>
+                                    <div className="bg-gray-50 rounded-xl p-4 space-y-1 md:col-span-2">
+                                        <p className="text-xs text-gray-500 flex items-center gap-1.5">
+                                            <IdCard className="h-3 w-3" /> Matrícula profesional
+                                        </p>
+                                        <p className="text-gray-900 font-medium">{profileForm.licenseNumber || '-'}</p>
                                     </div>
                                 </div>
                             )}
@@ -388,8 +484,8 @@ export function ProfilePage() {
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                <Key className="h-5 w-5 text-primary-600" />
-                                Cambiar Contraseña
+                                <Key className="h-5 w-5 text-primary-600 shrink-0" />
+                                <span className="truncate">Cambiar Contraseña</span>
                             </CardTitle>
                             <p className="text-sm text-gray-500 mt-1">
                                 Actualiza tu contraseña de acceso
@@ -397,54 +493,142 @@ export function ProfilePage() {
                         </CardHeader>
                         <CardContent>
                             <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                                <div className="grid grid-cols-1 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="currentPassword">Contraseña actual</Label>
+                                <div className="space-y-2">
+                                    <Label htmlFor="currentPassword" className="text-sm font-medium text-gray-700">
+                                        Contraseña actual
+                                    </Label>
+                                    <div className="relative">
                                         <Input
                                             id="currentPassword"
-                                            type="password"
+                                            type={showCurrentPassword ? 'text' : 'password'}
                                             value={passwordForm.currentPassword}
                                             onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
                                             placeholder="Ingresa tu contraseña actual"
-                                            required
+                                            className={cn(
+                                                "pr-10",
+                                                passwordErrors.currentPassword && "border-red-500 focus-visible:ring-red-500"
+                                            )}
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                            tabIndex={-1}
+                                        >
+                                            {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                        </button>
                                     </div>
+                                    {passwordErrors.currentPassword && (
+                                        <p className="text-sm text-red-500 flex items-center gap-1">
+                                            <AlertCircle className="h-3.5 w-3.5" />
+                                            {passwordErrors.currentPassword}
+                                        </p>
+                                    )}
+                                </div>
 
+                                <div className="relative py-1">
+                                    <div className="absolute inset-0 flex items-center">
+                                        <span className="w-full border-t" />
+                                    </div>
+                                    <div className="relative flex justify-center text-xs uppercase">
+                                        <span className="bg-background px-2 text-muted-foreground">
+                                            Nueva contraseña
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="newPassword">Nueva contraseña</Label>
-                                        <Input
-                                            id="newPassword"
-                                            type="password"
-                                            value={passwordForm.newPassword}
-                                            onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                                            placeholder="Nueva contraseña (mínimo 6 caracteres)"
-                                            required
-                                        />
+                                        <Label htmlFor="newPassword" className="text-sm font-medium text-gray-700">
+                                            Nueva contraseña
+                                        </Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="newPassword"
+                                                type={showNewPassword ? 'text' : 'password'}
+                                                value={passwordForm.newPassword}
+                                                onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                                                placeholder="Mínimo 6 caracteres"
+                                                className={cn(
+                                                    "pr-10",
+                                                    passwordErrors.newPassword && "border-red-500 focus-visible:ring-red-500"
+                                                )}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNewPassword(!showNewPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                                tabIndex={-1}
+                                            >
+                                                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                            </button>
+                                        </div>
                                         {passwordErrors.newPassword && (
-                                            <p className="text-sm text-red-500">{passwordErrors.newPassword}</p>
+                                            <p className="text-sm text-red-500 flex items-center gap-1">
+                                                <AlertCircle className="h-3.5 w-3.5" />
+                                                {passwordErrors.newPassword}
+                                            </p>
                                         )}
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="confirmPassword">Confirmar nueva contraseña</Label>
-                                        <Input
-                                            id="confirmPassword"
-                                            type="password"
-                                            value={passwordForm.confirmPassword}
-                                            onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                                            placeholder="Confirma tu nueva contraseña"
-                                            required
-                                        />
+                                        <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
+                                            Confirmar nueva contraseña
+                                        </Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="confirmPassword"
+                                                type={showConfirmPassword ? 'text' : 'password'}
+                                                value={passwordForm.confirmPassword}
+                                                onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                                                placeholder="Repite la nueva contraseña"
+                                                className={cn(
+                                                    "pr-10",
+                                                    passwordErrors.confirmPassword && "border-red-500 focus-visible:ring-red-500",
+                                                    passwordsMatch && "border-green-400 focus-visible:ring-green-300"
+                                                )}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                                tabIndex={-1}
+                                            >
+                                                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                            </button>
+                                        </div>
                                         {passwordErrors.confirmPassword && (
-                                            <p className="text-sm text-red-500">{passwordErrors.confirmPassword}</p>
+                                            <p className="text-sm text-red-500 flex items-center gap-1">
+                                                <AlertCircle className="h-3.5 w-3.5" />
+                                                {passwordErrors.confirmPassword}
+                                            </p>
+                                        )}
+                                        {passwordsMatch && !passwordErrors.confirmPassword && (
+                                            <p className="text-sm text-green-600 flex items-center gap-1">
+                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                                Las contraseñas coinciden
+                                            </p>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="flex justify-end pt-4">
-                                    <Button type="submit" disabled={changePassword.isPending}>
-                                        <Key className="h-4 w-4 mr-2" />
-                                        {changePassword.isPending ? 'Cambiando...' : 'Cambiar Contraseña'}
+                                <div className="flex justify-end pt-4 border-t">
+                                    <Button
+                                        type="submit"
+                                        disabled={changePassword.isPending}
+                                        className="w-full sm:w-auto sm:px-8 gap-2 bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-lg shadow-emerald-200/50 hover:shadow-emerald-300/50 transition-all duration-200 disabled:opacity-50"
+                                    >
+                                        {changePassword.isPending ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                Cambiando...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Key className="h-4 w-4" />
+                                                Cambiar Contraseña
+                                            </>
+                                        )}
                                     </Button>
                                 </div>
                             </form>

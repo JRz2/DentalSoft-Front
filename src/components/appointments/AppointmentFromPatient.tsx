@@ -14,12 +14,7 @@ import { useCreateAppointment } from '@/hooks/useAppointments';
 import { useStaff } from '@/hooks/useDoctors';
 import { CreateAppointmentDto } from '@/types/appointment';
 import { CalendarIcon as CalendarLucide, Stethoscope, Clock, FileText,
-    CalendarPlus,
-    UserRound,
-    Sparkles,
-    CheckCircle2,
-    AlertCircle
-} from 'lucide-react';
+    CalendarPlus, UserRound, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { clinicalHistoryService } from '@/services/clinicalHistory.service';
@@ -28,7 +23,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-const QUICK_TIMES = ['07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
+const QUICK_TIMES = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
 
 const appointmentSchema = z.object({
     doctorId: z.number().min(1, 'Selecciona un doctor'),
@@ -41,6 +36,11 @@ const appointmentSchema = z.object({
 });
 
 type AppointmentFormData = z.infer<typeof appointmentSchema>;
+
+const parseLocalDate = (dateStr: string): Date => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+};
 
 interface AppointmentFromPatientProps {
     open: boolean;
@@ -66,7 +66,7 @@ export function AppointmentFromPatient({
     const [isLoadingTreatments, setIsLoadingTreatments] = useState(false);
     const [showSummary, setShowSummary] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-        defaultDate ? new Date(defaultDate) : new Date()
+        defaultDate ? parseLocalDate(defaultDate) : new Date()
     );
 
     const {
@@ -81,7 +81,7 @@ export function AppointmentFromPatient({
         resolver: zodResolver(appointmentSchema),
         defaultValues: {
             doctorId: undefined,
-            appointmentDate: defaultDate || new Date().toISOString().split('T')[0],
+            appointmentDate: defaultDate || format(new Date(), 'yyyy-MM-dd'),
             appointmentTime: '09:00',
             duration: 30,
             reason: '',
@@ -130,13 +130,14 @@ export function AppointmentFromPatient({
         if (!open) {
             reset({
                 doctorId: undefined,
-                appointmentDate: defaultDate || new Date().toISOString().split('T')[0],
+                appointmentDate: defaultDate || format(new Date(), 'yyyy-MM-dd'),
                 appointmentTime: '09:00',
                 duration: 30,
                 reason: '',
                 notes: '',
                 treatmentId: undefined,
             });
+            setSelectedDate(defaultDate ? parseLocalDate(defaultDate) : new Date());
             setShowSummary(false);
         }
     }, [open, reset, defaultDate]);
@@ -322,7 +323,7 @@ export function AppointmentFromPatient({
                                                 onClick={() => setValue('appointmentTime', time)}
                                                 className={cn(
                                                     "min-w-[65px] text-sm",
-                                                    watch('appointmentTime') === time && "ring-2 ring-primary-200 ring-offset-1"
+                                                    watch('appointmentTime')
                                                 )}
                                             >
                                                 {time}
@@ -366,7 +367,7 @@ export function AppointmentFromPatient({
                                             onClick={() => setValue('duration', mins)}
                                             className={cn(
                                                 "min-w-[60px]",
-                                                watch('duration') === mins && "ring-2 ring-primary-200 ring-offset-1"
+                                                watch('duration')
                                             )}
                                         >
                                             {mins} min

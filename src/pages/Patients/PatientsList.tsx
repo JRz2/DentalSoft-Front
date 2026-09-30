@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users, UserCheck, TrendingUp, UserX } from 'lucide-react';
+import { Plus, Users, UserCheck, UserPlus, UserX, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { PatientTable } from '@/components/patients/PatientTable';
 import { PatientModal } from '@/components/patients/PatientModal';
 import { DeleteConfirmDialog } from '@/components/patients/DeleteConfirmDialog';
 import { SearchBar } from '@/components/shared/SearchBar';
 import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient, useRestorePatient } from '@/hooks/usePatients';
+import { useAppointments } from '@/hooks/useAppointments';
 import { Patient, CreatePatientDto } from '@/types/patient';
 import api from '@/services/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppointmentFromPatient } from '@/components/appointments/AppointmentFromPatient';
+import pacienteImg from '@/assets/images/paciente.png';
+import { useScrollDirection } from '@/hooks/useScrollDirection';
+import { cn } from '@/lib/utils';
+import { format, startOfDay, endOfDay } from 'date-fns';
 
 export function PatientsList() {
     const navigate = useNavigate();
@@ -36,6 +40,14 @@ export function PatientsList() {
         search: searchTerm || undefined,
     });
 
+    const today = new Date();
+    const { data: todayAppointmentsData } = useAppointments({
+        page: 1,
+        limit: 100,
+        startDate: format(startOfDay(today), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
+        endDate: format(endOfDay(today), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
+    });
+
     const createPatient = useCreatePatient();
     const updatePatient = useUpdatePatient();
     const deletePatient = useDeletePatient();
@@ -45,6 +57,8 @@ export function PatientsList() {
     const activePatients = data?.meta?.stats?.totalActive || 0;
     const newThisMonth = data?.meta?.stats?.newThisMonth || 0;
     const inactivePatients = totalPatients - activePatients;
+    const todayAppointments = todayAppointmentsData?.data?.length || 0;
+    const scrollDirection = useScrollDirection();
 
     const handleSearch = (value: string) => {
         setSearchTerm(value);
@@ -146,117 +160,134 @@ export function PatientsList() {
         refetch();
     };
 
+    // Tarjetas de estadísticas
+    const statsCards = [
+        {
+            label: 'Total Pacientes',
+            value: totalPatients,
+            icon: Users,
+            iconColor: 'text-gray-500',
+            valueColor: 'text-gray-900',
+        },
+        {
+            label: 'Pacientes Activos',
+            value: activePatients,
+            icon: UserCheck,
+            iconColor: 'text-green-500',
+            valueColor: 'text-green-600',
+        },
+        {
+            label: 'Nuevos este mes',
+            value: newThisMonth,
+            subtitle: totalPatients > 0
+                ? `${Math.round((newThisMonth / totalPatients) * 100)}% del total`
+                : 'Sin datos',
+            icon: UserPlus,
+            iconColor: 'text-purple-500',
+            valueColor: 'text-purple-600',
+        },
+        ...(isAdmin
+            ? [{
+                label: 'Pacientes Inactivos',
+                value: inactivePatients,
+                subtitle: inactivePatients > 0 ? 'Requieren atención' : 'Sin inactivos',
+                icon: UserX,
+                iconColor: 'text-red-500',
+                valueColor: 'text-red-600',
+                isInactive: true,
+            }]
+            : [{
+                label: 'Citas de Hoy',
+                value: todayAppointments,
+                subtitle: todayAppointments > 0 ? 'En agenda' : 'Sin citas',
+                icon: CalendarClock,
+                iconColor: 'text-orange-500',
+                valueColor: 'text-orange-600',
+            }]
+        ),
+    ];
+
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <Users className="h-6 w-6 text-primary-500" />
-                        Pacientes
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-1">
-                        Gestiona todos los pacientes de la clínica
-                    </p>
+        <div className="space-y-4 md:space-y-6">
+            {/* Header compacto */}
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                    <img
+                        src={pacienteImg}
+                        alt="Pacientes"
+                        className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover shrink-0"
+                    />
+                    <div className="min-w-0">
+                        <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+                            <span className="truncate">Pacientes</span>
+                        </h1>
+                        <p className="text-xs md:text-sm text-gray-500 mt-0.5 hidden sm:block">
+                            Gestiona todos los pacientes de la clínica
+                        </p>
+                    </div>
                 </div>
-                <Button onClick={handleCreate} className="gap-2 shadow-sm hover:shadow-md transition-shadow">
+
+                <Button
+                    onClick={handleCreate}
+                    className="gap-2 shadow-sm hover:shadow-md transition-shadow shrink-0 hidden lg:flex"
+                >
                     <Plus className="h-4 w-4" />
                     Nuevo Paciente
                 </Button>
             </div>
 
-            {/* Stats cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
+            {/* Grid de estadísticas */}
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-4">
+                {statsCards.map((card, index) => {
+                    const Icon = card.icon;
+                    return (
+                        <div
+                            key={index}
+                            className={cn(
+                                "bg-white rounded-2xl shadow-sm border border-gray-100 p-3 md:p-5 hover:shadow-md transition-shadow relative overflow-hidden",
+                                card.isInactive && "border-red-100"
+                            )}
+                        >
                             <div>
-                                <p className="text-sm font-medium text-gray-500">Total Pacientes</p>
-                                {isLoading ? (
-                                    <Skeleton className="h-8 w-16 mt-1" />
-                                ) : (
-                                    <p className="text-2xl font-bold text-gray-900">{totalPatients}</p>
-                                )}
-                            </div>
-                            <div className="p-3 bg-blue-50 rounded-xl">
-                                <Users className="h-5 w-5 text-blue-600" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Pacientes Activos</p>
-                                {isLoading ? (
-                                    <Skeleton className="h-8 w-16 mt-1" />
-                                ) : (
-                                    <p className="text-2xl font-bold text-green-600">{activePatients}</p>
-                                )}
-                            </div>
-                            <div className="p-3 bg-green-50 rounded-xl">
-                                <UserCheck className="h-5 w-5 text-green-600" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">Nuevos este mes</p>
-                                {isLoading ? (
-                                    <Skeleton className="h-8 w-16 mt-1" />
-                                ) : (
-                                    <p className="text-2xl font-bold text-purple-600">{newThisMonth}</p>
-                                )}
-                                <p className="text-xs text-gray-400 mt-0.5">
-                                    {totalPatients > 0 ? `${Math.round((newThisMonth / totalPatients) * 100)}% del total` : 'Sin datos'}
+                                <p className={cn(
+                                    "text-[11px] md:text-sm font-medium leading-tight",
+                                    card.isInactive ? "text-red-600" : "text-gray-500"
+                                )}>
+                                    {card.label}
                                 </p>
+                                {isLoading ? (
+                                    <Skeleton className="h-6 md:h-8 w-12 md:w-16 mt-1" />
+                                ) : (
+                                    <p className={cn("text-lg md:text-3xl font-bold mt-0.5 md:mt-1", card.valueColor)}>
+                                        {card.value}
+                                    </p>
+                                )}
+                                {card.subtitle && !isLoading && (
+                                    <p className={cn(
+                                        "text-[10px] md:text-xs mt-0.5",
+                                        card.isInactive ? "text-red-400" : "text-gray-400"
+                                    )}>
+                                        {card.subtitle}
+                                    </p>
+                                )}
                             </div>
-                            <div className="p-3 bg-purple-50 rounded-xl">
-                                <TrendingUp className="h-5 w-5 text-purple-600" />
+                            <div className="absolute bottom-0 right-0 p-2 md:p-3">
+                                <Icon className={cn("w-8 h-8 md:w-12 md:h-12 opacity-20", card.iconColor)} />
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
+                    );
+                })}
             </div>
 
-            {isAdmin && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-red-600">Pacientes Inactivos</p>
-                                    {isLoading ? (
-                                        <Skeleton className="h-8 w-16 mt-1" />
-                                    ) : (
-                                        <p className="text-2xl font-bold text-red-600">{inactivePatients}</p>
-                                    )}
-                                    <p className="text-xs text-red-400 mt-0.5">
-                                        {inactivePatients > 0 ? 'Requieren atención' : 'Sin inactivos'}
-                                    </p>
-                                </div>
-                                <div className="p-3 bg-red-100 rounded-xl">
-                                    <UserX className="h-5 w-5 text-red-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
-
-            {/* Tabla con buscador integrado */}
-            <Card className="border-0 shadow-sm">
-                <CardContent className="p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900">Listado de Pacientes</h2>
-                            <p className="text-sm text-gray-500">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+                {/* Sticky header */}
+                <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 px-4 md:px-6 py-3 md:py-4 rounded-t-2xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="min-w-0">
+                            <h2 className="text-base md:text-lg font-semibold text-gray-900">
+                                Listado de Pacientes
+                            </h2>
+                            <p className="text-xs md:text-sm text-gray-500">
                                 {totalPatients} {totalPatients === 1 ? 'paciente registrado' : 'pacientes registrados'}
                             </p>
                         </div>
@@ -268,7 +299,10 @@ export function PatientsList() {
                             />
                         </div>
                     </div>
+                </div>
 
+                {/* Tabla */}
+                <div className="p-4 md:p-6 rounded-b-2xl">
                     <PatientTable
                         data={patients}
                         isLoading={isLoading}
@@ -285,8 +319,32 @@ export function PatientsList() {
                             onPageChange: (page) => setCurrentPage(page),
                         }}
                     />
-                </CardContent>
-            </Card>
+                </div>
+            </div>
+
+            {/* FAB móvil */}
+            <button
+                type="button"
+                onClick={handleCreate}
+                aria-label="Nuevo Paciente"
+                className={cn(
+                    "fixed right-5 z-50 lg:hidden",
+                    "h-14 w-14 rounded-full",
+                    "bg-blue-600 hover:bg-blue-700 text-white",
+                    "flex items-center justify-center",
+                    "shadow-xl shadow-blue-600/30",
+                    "hover:shadow-2xl hover:shadow-blue-600/40",
+                    "active:scale-95 transition-all duration-300 ease-out",
+                    scrollDirection === 'down'
+                        ? "translate-y-24 opacity-0 pointer-events-none"
+                        : "translate-y-0 opacity-100"
+                )}
+                style={{
+                    bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
+                }}
+            >
+                <Plus className="h-6 w-6" strokeWidth={2.5} />
+            </button>
 
             {/* Modales */}
             <PatientModal
@@ -306,7 +364,6 @@ export function PatientsList() {
                 isLoading={deletePatient.isPending}
             />
 
-            {/* Modal para agendar cita desde la tabla */}
             {selectedPatientForAppointment && (
                 <AppointmentFromPatient
                     open={showAppointmentModal}
