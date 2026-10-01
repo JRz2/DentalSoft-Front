@@ -29,8 +29,8 @@ export function StartTreatmentDialog({
             <DialogContent className="max-w-md">
                 <DialogHeader>
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-emerald-100 rounded-full">
-                            <PlayCircle className="h-6 w-6 text-emerald-600" />
+                        <div className="p-2 bg-amber-100 rounded-full">
+                            <PlayCircle className="h-6 w-6 text-amber-600" />
                         </div>
                         <DialogTitle className="text-xl font-bold">Iniciar Tratamiento</DialogTitle>
                     </div>
@@ -39,10 +39,10 @@ export function StartTreatmentDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mt-2">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-2">
                     <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-emerald-600 mt-0.5" />
-                        <div className="text-sm text-emerald-700">
+                        <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+                        <div className="text-sm text-amber-700">
                             <p>Al iniciar el tratamiento:</p>
                             <ul className="list-disc list-inside mt-1 space-y-1">
                                 <li>El estado cambiará a <strong>"En Progreso"</strong></li>
@@ -64,7 +64,7 @@ export function StartTreatmentDialog({
                     <Button
                         onClick={onConfirm}
                         disabled={isLoading}
-                        className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+                        className="gap-2 bg-amber-600 hover:bg-amber-700"
                     >
                         {isLoading ? (
                             <>

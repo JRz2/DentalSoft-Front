@@ -1,5 +1,5 @@
 import { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, Trash2, Play, Pause, CheckCircle, XCircle, User, Coins } from 'lucide-react';
+import { Eye, Pencil, Play, XCircle, User, Coins, CheckCircle, CalendarDays, ListChecks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTableShadcn } from '@/components/shared/DataTableShadcn';
@@ -7,18 +7,16 @@ import { Treatment } from '@/types/treatment';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { cn } from '@/lib/utils';
 
 interface TreatmentTableProps {
     data: Treatment[];
     isLoading?: boolean;
     onViewDetail?: (treatment: Treatment) => void;
     onEdit?: (treatment: Treatment) => void;
-    onDelete?: (treatment: Treatment) => void;
     onStart?: (treatment: Treatment) => void;
-    onPause?: (treatment: Treatment) => void;
-    onComplete?: (treatment: Treatment) => void;
     onCancel?: (treatment: Treatment) => void;
-    patientId?: number;
     pagination?: {
         currentPage: number;
         totalPages: number;
@@ -31,7 +29,7 @@ interface TreatmentTableProps {
 const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
     PLANNED: { label: 'Planificado', className: 'bg-blue-100 text-blue-700', icon: Play },
     IN_PROGRESS: { label: 'En Progreso', className: 'bg-yellow-100 text-yellow-700', icon: Play },
-    ON_HOLD: { label: 'En Espera', className: 'bg-orange-100 text-orange-700', icon: Pause },
+    ON_HOLD: { label: 'En Espera', className: 'bg-orange-100 text-orange-700', icon: Play },
     COMPLETED: { label: 'Completado', className: 'bg-green-100 text-green-700', icon: CheckCircle },
     CANCELLED: { label: 'Cancelado', className: 'bg-red-100 text-red-700', icon: XCircle },
 };
@@ -49,30 +47,177 @@ const typeLabels: Record<string, string> = {
     MAINTENANCE: 'Mantenimiento',
 };
 
+const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    try {
+        return format(new Date(dateString), 'dd/MM/yyyy', { locale: es });
+    } catch {
+        return '-';
+    }
+};
+
+/* MOBILE / TABLET CARD — sin ícono decorativo: todo el ancho es para el nombre */
+interface CardProps {
+    treatment: Treatment;
+    onGoToDetail: (treatment: Treatment) => void;
+    onEdit?: (treatment: Treatment) => void;
+    onStart?: (treatment: Treatment) => void;
+    onCancel?: (treatment: Treatment) => void;
+}
+
+function TreatmentCard({
+    treatment,
+    onGoToDetail,
+    onEdit,
+    onStart,
+    onCancel,
+}: CardProps) {
+    const status = treatment.status;
+    const config = statusConfig[status];
+    const StatusIcon = config?.icon;
+
+    const cost = treatment.totalCost;
+    const numericCost = typeof cost === 'number' ? cost : parseFloat(cost as any);
+    const hasCost = numericCost && !isNaN(numericCost);
+
+    return (
+        <div
+            onClick={() => onGoToDetail(treatment)}
+            className="bg-white rounded-xl border border-gray-100 p-4 transition-all hover:shadow-md active:scale-[0.99] cursor-pointer h-full flex flex-col"
+        >
+            {/* Header: Nombre completo (sin ícono, todo el ancho disponible) + Estado */}
+            <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-gray-900 text-sm leading-snug" title={treatment.name}>
+                        {treatment.name}
+                    </h3>
+                    {treatment.patient && (
+                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1" title={treatment.patient.fullName}>
+                            <User className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{treatment.patient.fullName}</span>
+                        </p>
+                    )}
+                </div>
+                <Badge className={cn("shrink-0 text-[10px] px-2 py-0.5 whitespace-nowrap", config?.className)}>
+                    {StatusIcon && <StatusIcon className="h-3 w-3 mr-1" />}
+                    {config?.label}
+                </Badge>
+            </div>
+
+            {/* Info secundaria */}
+            <div className="mt-2.5 space-y-1.5 flex-1">
+                <Badge variant="outline" className="bg-gray-50 text-[10px] px-1.5 py-0">
+                    {typeLabels[treatment.type] || treatment.type}
+                </Badge>
+                <div className="flex items-center gap-3 text-xs text-gray-600 flex-wrap">
+                    <div className="flex items-center gap-1">
+                        <ListChecks className="h-3 w-3 text-gray-400 shrink-0" />
+                        <span>{treatment.estimatedSessions} sesiones</span>
+                    </div>
+                    {hasCost && (
+                        <div className="flex items-center gap-1">
+                            <Coins className="h-3 w-3 text-gray-400 shrink-0" />
+                            <span>Bs {numericCost.toFixed(2)}</span>
+                        </div>
+                    )}
+                    {treatment.startDate && (
+                        <div className="flex items-center gap-1">
+                            <CalendarDays className="h-3 w-3 text-gray-400 shrink-0" />
+                            <span>{formatDate(treatment.startDate)}</span>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Acciones */}
+            <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-100">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onGoToDetail(treatment);
+                    }}
+                    className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-9 w-9"
+                    title="Ver sesiones"
+                >
+                    <Eye className="h-4 w-4" />
+                </Button>
+
+                {onEdit && status !== 'COMPLETED' && status !== 'CANCELLED' && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(treatment);
+                        }}
+                        className="text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50 h-9 w-9"
+                        title="Editar"
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+                )}
+
+                {status === 'PLANNED' && onStart && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onStart(treatment);
+                        }}
+                        className="text-green-600 hover:text-green-800 hover:bg-green-50 h-9 w-9"
+                        title="Iniciar tratamiento"
+                    >
+                        <Play className="h-4 w-4" />
+                    </Button>
+                )}
+
+                {(status === 'PLANNED' || status === 'IN_PROGRESS') && onCancel && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onCancel(treatment);
+                        }}
+                        className="text-red-600 hover:text-red-800 hover:bg-red-50 h-9 w-9"
+                        title="Cancelar tratamiento"
+                    >
+                        <XCircle className="h-4 w-4" />
+                    </Button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* MAIN COMPONENT */
 export function TreatmentTable({
     data,
     isLoading,
     onViewDetail,
     onEdit,
-    onDelete,
     onStart,
-    onPause,
-    onComplete,
     onCancel,
-    patientId,
     pagination,
 }: TreatmentTableProps) {
     const navigate = useNavigate();
+    // Tarjetas hasta 1024px: cubre celulares Y tablets (iPad mini incluido en portrait ~768px).
+    // Solo a partir de laptop/desktop real se usa la tabla de 8 columnas.
+    const useCardView = useMediaQuery('(max-width: 1024px)');
 
-    const formatDate = (dateString: string) => {
-        if (!dateString) return '-';
-        try {
-            return format(new Date(dateString), 'dd/MM/yyyy', { locale: es });
-        } catch {
-            return '-';
+    const goToTreatmentDetail = (treatment: Treatment) => {
+        const treatmentPatientId = treatment.patient?.id;
+        if (treatmentPatientId) {
+            navigate(`/treatment-sessions/${treatment.id}/patient/${treatmentPatientId}`);
+        } else if (onViewDetail) {
+            onViewDetail(treatment);
         }
     };
 
+    /* COLUMNAS PARA DESKTOP */
     const columns: ColumnDef<Treatment>[] = [
         {
             accessorKey: 'name',
@@ -179,7 +324,7 @@ export function TreatmentTable({
         {
             id: 'actions',
             header: 'Acciones',
-            size: 150,
+            size: 130,
             cell: ({ row }) => {
                 const treatment = row.original;
                 const status = treatment.status;
@@ -191,11 +336,7 @@ export function TreatmentTable({
                             size="icon"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                if (patientId) {
-                                    navigate(`/treatment-sessions/${treatment.id}/patient/${patientId}`);
-                                } else if (onViewDetail) {
-                                    onViewDetail(treatment);
-                                }
+                                goToTreatmentDetail(treatment);
                             }}
                             className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-8 w-8"
                             title="Ver sesiones"
@@ -203,7 +344,7 @@ export function TreatmentTable({
                             <Eye className="h-4 w-4" />
                         </Button>
 
-                        {onEdit && (
+                        {onEdit && status !== 'COMPLETED' && status !== 'CANCELLED' && (
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -233,37 +374,7 @@ export function TreatmentTable({
                             </Button>
                         )}
 
-                        {status === 'IN_PROGRESS' && onPause && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onPause(treatment);
-                                }}
-                                className="text-orange-600 hover:text-orange-800 hover:bg-orange-50 h-8 w-8"
-                                title="Pausar tratamiento"
-                            >
-                                <Pause className="h-4 w-4" />
-                            </Button>
-                        )}
-
-                        {status === 'IN_PROGRESS' && onComplete && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onComplete(treatment);
-                                }}
-                                className="text-green-600 hover:text-green-800 hover:bg-green-50 h-8 w-8"
-                                title="Completar tratamiento"
-                            >
-                                <CheckCircle className="h-4 w-4" />
-                            </Button>
-                        )}
-
-                        {(status === 'PLANNED' || status === 'ON_HOLD') && onCancel && (
+                        {(status === 'PLANNED' || status === 'IN_PROGRESS') && onCancel && (
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -277,39 +388,88 @@ export function TreatmentTable({
                                 <XCircle className="h-4 w-4" />
                             </Button>
                         )}
-
-                        {onDelete && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onDelete(treatment);
-                                }}
-                                className="text-red-600 hover:text-red-800 hover:bg-red-50 h-8 w-8"
-                                title="Eliminar"
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        )}
                     </div>
                 );
             },
         },
     ];
 
+    /* LOADING STATE */
+    if (isLoading && useCardView) {
+        return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 animate-pulse">
+                        <div className="space-y-2">
+                            <div className="h-4 bg-gray-200 rounded w-3/4" />
+                            <div className="h-3 bg-gray-100 rounded w-1/2" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    /* EMPTY STATE */
+    if (!data.length && !isLoading && useCardView) {
+        return (
+            <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
+                <p className="text-sm text-gray-500">No hay tratamientos registrados</p>
+            </div>
+        );
+    }
+
+    /* RENDER MOBILE/TABLET: cards — 1 columna en celular, 2 columnas en tablet (sm:) */
+    if (useCardView) {
+        return (
+            <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {data.map((treatment) => (
+                        <TreatmentCard
+                            key={treatment.id}
+                            treatment={treatment}
+                            onGoToDetail={goToTreatmentDetail}
+                            onEdit={onEdit}
+                            onStart={onStart}
+                            onCancel={onCancel}
+                        />
+                    ))}
+                </div>
+
+                {pagination && pagination.totalPages > 1 && (
+                    <div className="flex items-center justify-between bg-white rounded-xl border border-gray-100 p-3">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => pagination.onPageChange(pagination.currentPage - 1)}
+                            disabled={pagination.currentPage <= 1}
+                        >
+                            Anterior
+                        </Button>
+                        <span className="text-xs text-gray-600">
+                            {pagination.currentPage} / {pagination.totalPages}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => pagination.onPageChange(pagination.currentPage + 1)}
+                            disabled={pagination.currentPage >= pagination.totalPages}
+                        >
+                            Siguiente
+                        </Button>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    /* RENDER DESKTOP: tabla */
     return (
         <DataTableShadcn
             columns={columns}
             data={data}
             isLoading={isLoading}
-            onRowClick={(treatment) => {
-                if (patientId) {
-                    navigate(`/treatment-sessions/${treatment.id}/patient/${patientId}`);
-                } else if (onViewDetail) {
-                    onViewDetail(treatment);
-                }
-            }}
+            onRowClick={goToTreatmentDetail}
             pagination={pagination}
         />
     );
