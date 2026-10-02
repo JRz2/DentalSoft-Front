@@ -15,8 +15,8 @@ export const clinicalHistoryService = {
     },
 
     // Actualizar historia clínica
-    update: async (id: number, data: Partial<ClinicalHistory>): Promise<ClinicalHistory> => {
-        const response = await api.put(`/clinical-history/${id}`, data);
+    update: async (patientId: number, data: Partial<ClinicalHistory>): Promise<ClinicalHistory> => {
+        const response = await api.put(`/clinical-history/patient/${patientId}`, data);
         return response.data;
     },
 

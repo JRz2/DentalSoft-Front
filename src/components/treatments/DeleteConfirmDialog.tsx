@@ -1,18 +1,12 @@
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Trash2 } from 'lucide-react';
+import { AlertCircle, Trash2, Loader2 } from 'lucide-react';
 
 interface DeleteConfirmDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    patientName: string;
+    treatmentName: string;
     onConfirm: () => void;
     isLoading?: boolean;
 }
@@ -20,7 +14,7 @@ interface DeleteConfirmDialogProps {
 export function DeleteConfirmDialog({
     open,
     onOpenChange,
-    patientName,
+    treatmentName,
     onConfirm,
     isLoading = false,
 }: DeleteConfirmDialogProps) {
@@ -32,10 +26,10 @@ export function DeleteConfirmDialog({
                         <div className="p-2 bg-red-100 rounded-full">
                             <Trash2 className="h-6 w-6 text-red-600" />
                         </div>
-                        <DialogTitle className="text-xl font-bold">Eliminar Paciente</DialogTitle>
+                        <DialogTitle className="text-xl font-bold">Eliminar Tratamiento</DialogTitle>
                     </div>
                     <DialogDescription className="pt-2">
-                        ¿Estás seguro de que deseas eliminar a <strong>{patientName}</strong>?
+                        ¿Estás seguro de que deseas eliminar el tratamiento <strong>{treatmentName}</strong>?
                     </DialogDescription>
                 </DialogHeader>
 
@@ -45,9 +39,9 @@ export function DeleteConfirmDialog({
                         <div className="text-sm text-red-700">
                             <p>Esta acción no se puede deshacer. Se eliminarán:</p>
                             <ul className="list-disc list-inside mt-1 space-y-1">
-                                <li>Toda la información del paciente</li>
-                                <li>Historial clínico asociado</li>
-                                <li>Tratamientos y sesiones</li>
+                                <li>Los datos del tratamiento</li>
+                                <li>Las sesiones asociadas</li>
+                                <li>Los pagos registrados a este tratamiento</li>
                             </ul>
                         </div>
                     </div>
@@ -69,7 +63,7 @@ export function DeleteConfirmDialog({
                     >
                         {isLoading ? (
                             <>
-                                <span className="animate-spin">⏳</span>
+                                <Loader2 className="h-4 w-4 animate-spin" />
                                 Eliminando...
                             </>
                         ) : (

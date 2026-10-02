@@ -34,7 +34,20 @@ export const treatmentService = {
 
     // Cancelar tratamiento
     cancel: async (id: number): Promise<void> => {
-        await api.delete(`/treatment/${id}`);
+        const response = await api.patch(`/treatment/${id}/cancel`);
+        return response.data;
+    },
+
+    // Iniciar tratamiento (PLANNED -> IN_PROGRESS)
+    start: async (id: number): Promise<Treatment> => {
+        const response = await api.patch(`/treatment/${id}/start`);
+        return response.data;
+    },
+
+    // Completar tratamiento (IN_PROGRESS -> COMPLETED)
+    complete: async (id: number): Promise<Treatment> => {
+        const response = await api.patch(`/treatment/${id}/complete`);
+        return response.data;
     },
 
     registerPayment: async (treatmentId: number, data: {

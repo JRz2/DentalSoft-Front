@@ -1,23 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-    Plus, Edit, Stethoscope, ClipboardList, Phone, Mail, Calendar as CalendarIcon,
-    MapPin, IdCard, Search, FileText
+import { Plus, Edit, Stethoscope, ClipboardList, Phone, Mail, Calendar as CalendarIcon,
+    MapPin, Search
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from '@/components/ui/select';
 import { usePatient } from '@/hooks/usePatients';
-import {
-    useClinicalHistory,
-    useCompleteTreatment,
-    useTreatments,
-    useStartTreatment,
-    useCancelTreatment,
-    useDeleteTreatment
+import { useClinicalHistory, useCompleteTreatment, useTreatments, useStartTreatment,
+    useCancelTreatment
 } from '@/hooks/useClinicalHistory';
 import { TreatmentForm } from '@/components/clinical/TreatmentForm';
 import { ClinicalInfoForm } from '@/components/clinical/ClinicalInfoForm';
@@ -27,8 +20,11 @@ import { es } from 'date-fns/locale';
 import { CompleteTreatmentDialog } from '@/components/treatments/CompleteTreatmentDialog';
 import { StartTreatmentDialog } from '@/components/treatments/StartTreatmentDialog';
 import { CancelTreatmentDialog } from '@/components/treatments/CancelTreatmentDialog';
-import { DeleteConfirmDialog } from '@/components/patients/DeleteConfirmDialog';
+import { DeleteConfirmDialog } from '@/components/treatments/DeleteConfirmDialog';
 import { clinicalHistoryService } from '@/services/clinicalHistory.service';
+import historyclinicImg from '@/assets/images/historyclinicImg.png';
+import { useScrollDirection } from '@/hooks/useScrollDirection';
+import { cn } from '@/lib/utils';
 
 // Opciones para filtros
 const statusOptions = [
@@ -59,21 +55,23 @@ export function ClinicalHistoryPage() {
     const patientId = parseInt(id!);
     const navigate = useNavigate();
 
-    // ✅ Hooks de acciones
     const completeTreatment = useCompleteTreatment();
     const startTreatment = useStartTreatment();
     const cancelTreatment = useCancelTreatment();
+    const scrollDirection = useScrollDirection();
 
-    // Estados
     const [showTreatmentForm, setShowTreatmentForm] = useState(false);
     const [showClinicalInfoForm, setShowClinicalInfoForm] = useState(false);
+
+    // Buscador con debounce
+    const [searchInput, setSearchInput] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+
     const [statusFilter, setStatusFilter] = useState('all');
     const [typeFilter, setTypeFilter] = useState('all');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
 
-    // ✅ Diálogos
     const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
     const [startDialogOpen, setStartDialogOpen] = useState(false);
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -82,12 +80,18 @@ export function ClinicalHistoryPage() {
     const [showEditTreatmentForm, setShowEditTreatmentForm] = useState(false);
     const [treatmentToEdit, setTreatmentToEdit] = useState<any>(null);
 
-    // Obtener datos
     const { data: patient, isLoading: patientLoading } = usePatient(patientId);
     const { data: clinicalHistory, isLoading: historyLoading, refetch: refetchHistory } = useClinicalHistory(patientId);
     const { data: treatments, isLoading: treatmentsLoading, refetch: refetchTreatments } = useTreatments(patientId);
 
-    // Filtrar tratamientos
+    // Debounce del buscador
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setSearchTerm(searchInput);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchInput]);
+
     const filteredTreatments = (treatments || []).filter((treatment) => {
         const matchesSearch = treatment.name.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === 'all' || treatment.status === statusFilter;
@@ -95,14 +99,12 @@ export function ClinicalHistoryPage() {
         return matchesSearch && matchesStatus && matchesType;
     });
 
-    // Paginación
     const totalPages = Math.ceil(filteredTreatments.length / itemsPerPage);
     const paginatedTreatments = filteredTreatments.slice(
         (currentPage - 1) * itemsPerPage,
         currentPage * itemsPerPage
     );
 
-    // ✅ HANDLERS - Setean estados (MISMO PATRÓN)
     const handleEdit = (treatment: any) => {
         setTreatmentToEdit(treatment);
         setShowEditTreatmentForm(true);
@@ -128,7 +130,6 @@ export function ClinicalHistoryPage() {
         setDeleteDialogOpen(true);
     };
 
-    // ✅ CONFIRMACIONES - Usan los hooks correctos
     const handleConfirmComplete = async () => {
         if (selectedTreatment) {
             await completeTreatment.mutateAsync(selectedTreatment.id);
@@ -165,19 +166,16 @@ export function ClinicalHistoryPage() {
         }
     };
 
-    // Redirigir si no hay paciente
     useEffect(() => {
         if (!patientLoading && !patient) {
             navigate('/patients');
         }
     }, [patient, patientLoading, navigate]);
 
-    // Resetear página cuando cambian los filtros
     useEffect(() => {
         setCurrentPage(1);
     }, [searchTerm, statusFilter, typeFilter]);
 
-    // Obtener iniciales para el avatar
     const getInitials = (name: string) => {
         return name
             .split(' ')
@@ -202,12 +200,12 @@ export function ClinicalHistoryPage() {
 
     if (patientLoading || historyLoading) {
         return (
-            <div className="space-y-6 p-6">
-                <div className="flex gap-6">
-                    <Skeleton className="h-24 w-24 rounded-full" />
+            <div className="space-y-6">
+                <div className="flex gap-4 md:gap-6">
+                    <Skeleton className="h-16 w-16 md:h-24 md:w-24 rounded-full shrink-0" />
                     <div className="space-y-2 flex-1">
-                        <Skeleton className="h-8 w-64" />
-                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-6 md:h-8 w-48 md:w-64" />
+                        <Skeleton className="h-4 w-24 md:w-32" />
                     </div>
                 </div>
                 <Skeleton className="h-32 w-full" />
@@ -219,30 +217,39 @@ export function ClinicalHistoryPage() {
     if (!patient) return null;
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6">
+        <div className="space-y-4 md:space-y-6">
 
-                {/* Título Historia Clínica */}
-                <div className="mb-6">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 bg-primary-100 rounded-xl">
-                            <FileText className="h-6 w-6 text-primary-600" />
-                        </div>
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900">Historia Clínica</h1>
-                            <p className="text-sm text-gray-500">Registro completo de tratamientos y consultas del paciente</p>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 md:px-6 py-4 border-b border-gray-100">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <img
+                            src={historyclinicImg}
+                            alt="Historia Clínica"
+                            className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover shrink-0"
+                        />
+                        <div className="min-w-0">
+                            <h1 className="text-lg md:text-2xl font-bold text-gray-900">
+                                Historia Clínica
+                            </h1>
+                            <p className="text-xs md:text-sm text-gray-500 mt-0.5 hidden sm:block">
+                                Registro completo de tratamientos y consultas del paciente
+                            </p>
                         </div>
                     </div>
+                    <Button
+                        variant="outline"
+                        onClick={() => navigate('/patients')}
+                        className="shrink-0 w-full sm:w-auto"
+                    >
+                        Volver a Pacientes
+                    </Button>
                 </div>
 
-                {/* Header con foto de paciente */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                    <div className="flex flex-col md:flex-row gap-6">
-                        <div className="flex flex-col items-center gap-3">
-                            <div
-                                className="h-24 w-24 rounded-full border-4 border-primary-100 overflow-hidden bg-primary-500 flex items-center justify-center"
-                                style={{ backgroundColor: '#fafafa' }}
-                            >
+                <div className="p-4 md:p-6">
+                    <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+
+                        <div className="flex justify-center md:justify-start shrink-0">
+                            <div className="h-20 w-20 md:h-24 md:w-24 rounded-full border-4 border-primary-100 overflow-hidden bg-gray-50 flex items-center justify-center">
                                 {patient?.photoUrl && patient.photoUrl.trim() !== '' ? (
                                     <img
                                         src={getImageUrl(patient.photoUrl)}
@@ -254,127 +261,151 @@ export function ClinicalHistoryPage() {
                                     />
                                 ) : null}
                                 <span
-                                    className="text-black text-2xl font-medium"
-                                    style={{ display: patient?.photoUrl && patient.photoUrl.trim() !== '' ? 'none' : 'block' }}
+                                    className="text-gray-700 text-lg md:text-2xl font-semibold"
+                                    style={{
+                                        display: patient?.photoUrl && patient.photoUrl.trim() !== ''
+                                            ? 'none'
+                                            : 'block'
+                                    }}
                                 >
                                     {getInitials(patient.fullName)}
                                 </span>
                             </div>
-                            <Badge variant={patient.IsActive !== false ? 'default' : 'secondary'}>
-                                {patient.IsActive !== false ? 'Activo' : 'Inactivo'}
-                            </Badge>
                         </div>
 
-                        <div className="flex-1">
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                                <div>
-                                    <h1 className="text-2xl font-bold text-gray-900">{patient.fullName}</h1>
-                                    {patient.createdAt && (
-                                        <p className="text-gray-500 mt-1">
+                        <div className="flex-1 min-w-0">
+                            <h2 className="text-xl md:text-2xl font-bold text-gray-900 text-center md:text-left truncate">
+                                {patient.fullName}
+                            </h2>
+
+                            <div className="mt-1 flex flex-wrap items-center justify-center md:justify-start gap-x-3 gap-y-1 text-sm text-gray-500">
+                                <span>Historia #{patient.medicalRecordNum}</span>
+                                {patient.createdAt && (
+                                    <>
+                                        <span className="hidden sm:inline text-gray-300">·</span>
+                                        <span>
                                             Paciente desde {format(new Date(patient.createdAt), 'MMMM yyyy', { locale: es })}
-                                        </p>
-                                    )}
-                                </div>
-                                <Button variant="outline" onClick={() => navigate('/patients')}>
-                                    Volver a Pacientes
-                                </Button>
+                                        </span>
+                                    </>
+                                )}
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-                                <div className="flex items-center gap-3 text-sm">
-                                    <IdCard className="h-4 w-4 text-gray-400" />
-                                    <span className="text-gray-600">Historia #{patient.medicalRecordNum}</span>
-                                </div>
-                                <div className="flex items-center gap-3 text-sm">
-                                    <CalendarIcon className="h-4 w-4 text-gray-400" />
-                                    <span className="text-gray-600">
-                                        {patient.birthDate ? format(new Date(patient.birthDate), 'dd/MM/yyyy') : 'No registrada'}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-3 text-sm">
-                                    <Mail className="h-4 w-4 text-gray-400" />
-                                    <span className="text-gray-600">{patient.email}</span>
-                                </div>
-                                <div className="flex items-center gap-3 text-sm">
-                                    <Phone className="h-4 w-4 text-gray-400" />
-                                    <span className="text-gray-600">{patient.phoneNumber}</span>
-                                </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4 md:mt-5">
+                                {patient.email && (
+                                    <div className="flex items-center gap-2 text-sm min-w-0">
+                                        <Mail className="h-4 w-4 text-gray-400 shrink-0" />
+                                        <span className="text-gray-600 truncate">{patient.email}</span>
+                                    </div>
+                                )}
+                                {patient.phoneNumber && (
+                                    <div className="flex items-center gap-2 text-sm min-w-0">
+                                        <Phone className="h-4 w-4 text-gray-400 shrink-0" />
+                                        <span className="text-gray-600 truncate">{patient.phoneNumber}</span>
+                                    </div>
+                                )}
+                                {patient.birthDate && (
+                                    <div className="flex items-center gap-2 text-sm min-w-0">
+                                        <CalendarIcon className="h-4 w-4 text-gray-400 shrink-0" />
+                                        <span className="text-gray-600 truncate">
+                                            {format(new Date(patient.birthDate), 'dd/MM/yyyy')}
+                                        </span>
+                                    </div>
+                                )}
                                 {patient.address && (
-                                    <div className="flex items-center gap-3 text-sm col-span-full">
-                                        <MapPin className="h-4 w-4 text-gray-400" />
-                                        <span className="text-gray-600">{patient.address}</span>
+                                    <div className="flex items-center gap-2 text-sm min-w-0 sm:col-span-2 lg:col-span-3">
+                                        <MapPin className="h-4 w-4 text-gray-400 shrink-0" />
+                                        <span className="text-gray-600 truncate">{patient.address}</span>
                                     </div>
                                 )}
                             </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Información Clínica */}
-                <Card className="border-l-4 border-l-primary-500">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-primary-100 rounded-lg">
+            <Card className="border-l-4 border-l-primary-500">
+                <CardHeader>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <div className="p-2 bg-primary-100 rounded-lg shrink-0">
                                 <Stethoscope className="h-5 w-5 text-primary-600" />
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <CardTitle>Información Clínica</CardTitle>
                                 <p className="text-sm text-gray-500 mt-1">Antecedentes médicos, alergias y observaciones</p>
                             </div>
                         </div>
-                        <Button variant="outline" size="sm" onClick={() => setShowClinicalInfoForm(true)}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowClinicalInfoForm(true)}
+                            className="w-full sm:w-auto shrink-0"
+                        >
                             <Edit className="h-4 w-4 mr-2" />
                             Actualizar
                         </Button>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div>
-                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Antecedentes Médicos</label>
-                                <p className="mt-2 text-gray-700">{clinicalHistory?.medicalHistory || 'No registrados'}</p>
-                            </div>
-                            <div>
-                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Alergias</label>
-                                <p className="mt-2 text-gray-700">{clinicalHistory?.allergies || 'No registradas'}</p>
-                            </div>
-                            <div>
-                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Observaciones Generales</label>
-                                <p className="mt-2 text-gray-700">{clinicalHistory?.observations || 'No registradas'}</p>
-                            </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Antecedentes Médicos</label>
+                            <p className="mt-2 text-gray-700">{clinicalHistory?.medicalHistory || 'No registrados'}</p>
                         </div>
-                    </CardContent>
-                </Card>
+                        <div>
+                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Alergias</label>
+                            <p className="mt-2 text-gray-700">{clinicalHistory?.allergies || 'No registradas'}</p>
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Observaciones Generales</label>
+                            <p className="mt-2 text-gray-700">{clinicalHistory?.observations || 'No registradas'}</p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
-                {/* Sección de Tratamientos */}
-                <Card>
-                    <CardHeader>
-                        <div className="flex items-center gap-3">
-                            <ClipboardList className="h-5 w-5 text-primary-600" />
-                            <div>
-                                <CardTitle>Tratamientos</CardTitle>
-                                <p className="text-sm text-gray-500 mt-1">Gestión de tratamientos odontológicos</p>
+            <Card className="overflow-visible">
+                {/* Sticky header con buscador y filtros */}
+                <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 px-4 md:px-6 py-3 md:py-4 rounded-t-2xl">
+                    <div className="flex flex-col gap-3">
+                        {/* Fila 1: título + contador + botón (desktop) */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <ClipboardList className="h-5 w-5 text-primary-600 shrink-0" />
+                                <div className="min-w-0">
+                                    <h2 className="text-base md:text-lg font-semibold text-gray-900">
+                                        Listado de Tratamientos
+                                    </h2>
+                                    <p className="text-xs md:text-sm text-gray-500">
+                                        {filteredTreatments.length}{' '}
+                                        {filteredTreatments.length === 1
+                                            ? 'tratamiento registrado'
+                                            : 'tratamientos registrados'}
+                                    </p>
+                                </div>
                             </div>
-                            <div className="ml-auto">
-                                <Button onClick={() => setShowTreatmentForm(true)} className="gap-2">
-                                    <Plus className="h-4 w-4" />
-                                    Nuevo Tratamiento
-                                </Button>
-                            </div>
+                            <Button
+                                onClick={() => setShowTreatmentForm(true)}
+                                className="gap-2 shadow-sm hover:shadow-md transition-shadow shrink-0 hidden lg:flex"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Nuevo Tratamiento
+                            </Button>
                         </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+
+                        {/* Fila 2: buscador + filtros */}
                         <div className="flex flex-col sm:flex-row gap-3">
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 <Input
                                     placeholder="Buscar tratamiento..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-9"
+                                    value={searchInput}
+                                    onChange={(e) => setSearchInput(e.target.value)}
+                                    className="pl-9 w-full"
                                 />
                             </div>
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                <SelectTrigger className="w-[150px]">
+                                <SelectTrigger className="w-full sm:w-[150px]">
                                     <SelectValue placeholder="Estado" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -386,7 +417,7 @@ export function ClinicalHistoryPage() {
                                 </SelectContent>
                             </Select>
                             <Select value={typeFilter} onValueChange={setTypeFilter}>
-                                <SelectTrigger className="w-[150px]">
+                                <SelectTrigger className="w-full sm:w-[150px]">
                                     <SelectValue placeholder="Tipo" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -398,109 +429,131 @@ export function ClinicalHistoryPage() {
                                 </SelectContent>
                             </Select>
                         </div>
+                    </div>
+                </div>
 
-                        <TreatmentTable
-                            data={paginatedTreatments}
-                            isLoading={treatmentsLoading}
-                            patientId={patientId}
-                            onStart={handleStartClick}
-                            onComplete={handleCompleteClick}
-                            onEdit={handleEdit}
-                            onDelete={handleDelete}
-                            onCancel={handleCancelClick}
-                            pagination={{
-                                currentPage,
-                                totalPages,
-                                totalItems: filteredTreatments.length,
-                                itemsPerPage,
-                                onPageChange: setCurrentPage,
-                            }}
-                        />
-                    </CardContent>
-                </Card>
+                <CardContent className="space-y-4 pt-4">
+                    {/* FAB móvil */}
+                    <button
+                        type="button"
+                        onClick={() => setShowTreatmentForm(true)}
+                        aria-label="Nuevo Tratamiento"
+                        className={cn(
+                            "fixed right-5 z-50 lg:hidden",
+                            "h-14 w-14 rounded-full",
+                            "bg-blue-600 hover:bg-blue-700 text-white",
+                            "flex items-center justify-center",
+                            "shadow-xl shadow-blue-600/30",
+                            "hover:shadow-2xl hover:shadow-blue-600/40",
+                            "active:scale-95 transition-all duration-300 ease-out",
+                            scrollDirection === 'down'
+                                ? "translate-y-24 opacity-0 pointer-events-none"
+                                : "translate-y-0 opacity-100"
+                        )}
+                        style={{
+                            bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
+                        }}
+                    >
+                        <Plus className="h-6 w-6" strokeWidth={2.5} />
+                    </button>
 
-                {/* Modales */}
-                {showTreatmentForm && clinicalHistory && (
-                    <TreatmentForm
-                        open={showTreatmentForm}
-                        onOpenChange={setShowTreatmentForm}
-                        clinicalHistoryId={clinicalHistory.id}
-                        onSuccess={() => {
-                            setShowTreatmentForm(false);
-                            refetchTreatments();
+                    <TreatmentTable
+                        data={paginatedTreatments}
+                        isLoading={treatmentsLoading}
+                        patientId={patientId}
+                        onStart={handleStartClick}
+                        onComplete={handleCompleteClick}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onCancel={handleCancelClick}
+                        pagination={{
+                            currentPage,
+                            totalPages,
+                            totalItems: filteredTreatments.length,
+                            itemsPerPage,
+                            onPageChange: setCurrentPage,
                         }}
                     />
-                )}
+                </CardContent>
+            </Card>
 
-                {showClinicalInfoForm && clinicalHistory && (
-                    <ClinicalInfoForm
-                        open={showClinicalInfoForm}
-                        onOpenChange={setShowClinicalInfoForm}
-                        clinicalHistory={clinicalHistory}
-                        onSuccess={() => {
-                            setShowClinicalInfoForm(false);
-                            refetchHistory();
-                        }}
-                    />
-                )}
+            {showTreatmentForm && clinicalHistory && (
+                <TreatmentForm
+                    open={showTreatmentForm}
+                    onOpenChange={setShowTreatmentForm}
+                    clinicalHistoryId={clinicalHistory.id}
+                    onSuccess={() => {
+                        setShowTreatmentForm(false);
+                        refetchTreatments();
+                    }}
+                />
+            )}
 
-                {/* ✅ Diálogo Completar */}
-                {completeDialogOpen && (
-                    <CompleteTreatmentDialog
-                        open={completeDialogOpen}
-                        onOpenChange={setCompleteDialogOpen}
-                        treatmentName={selectedTreatment?.name || ''}
-                        onConfirm={handleConfirmComplete}
-                        isLoading={completeTreatment.isPending}
-                    />
-                )}
+            {showClinicalInfoForm && clinicalHistory && (
+                <ClinicalInfoForm
+                    open={showClinicalInfoForm}
+                    onOpenChange={setShowClinicalInfoForm}
+                    clinicalHistory={clinicalHistory}
+                    patientId={patientId}
+                    onSuccess={() => {
+                        setShowClinicalInfoForm(false);
+                        refetchHistory();
+                    }}
+                />
+            )}
 
-                {/* ✅ Diálogo Iniciar */}
-                {startDialogOpen && (
-                    <StartTreatmentDialog
-                        open={startDialogOpen}
-                        onOpenChange={setStartDialogOpen}
-                        treatmentName={selectedTreatment?.name || ''}
-                        onConfirm={handleConfirmStart}
-                        isLoading={startTreatment.isPending}
-                    />
-                )}
+            {completeDialogOpen && (
+                <CompleteTreatmentDialog
+                    open={completeDialogOpen}
+                    onOpenChange={setCompleteDialogOpen}
+                    treatmentName={selectedTreatment?.name || ''}
+                    onConfirm={handleConfirmComplete}
+                    isLoading={completeTreatment.isPending}
+                />
+            )}
 
-                {/* ✅ Diálogo Cancelar */}
-                {cancelDialogOpen && (
-                    <CancelTreatmentDialog
-                        open={cancelDialogOpen}
-                        onOpenChange={setCancelDialogOpen}
-                        treatmentName={selectedTreatment?.name || ''}
-                        onConfirm={handleConfirmCancel}
-                        isLoading={cancelTreatment.isPending}
-                    />
-                )}
+            {startDialogOpen && (
+                <StartTreatmentDialog
+                    open={startDialogOpen}
+                    onOpenChange={setStartDialogOpen}
+                    treatmentName={selectedTreatment?.name || ''}
+                    onConfirm={handleConfirmStart}
+                    isLoading={startTreatment.isPending}
+                />
+            )}
 
-                {/* ✅ Diálogo Eliminar */}
-                {deleteDialogOpen && (
-                    <DeleteConfirmDialog
-                        open={deleteDialogOpen}
-                        onOpenChange={setDeleteDialogOpen}
-                        patientName={selectedTreatment?.name || ''}
-                        onConfirm={handleConfirmDelete}
-                        isLoading={false}
-                    />
-                )}
+            {cancelDialogOpen && (
+                <CancelTreatmentDialog
+                    open={cancelDialogOpen}
+                    onOpenChange={setCancelDialogOpen}
+                    treatmentName={selectedTreatment?.name || ''}
+                    onConfirm={handleConfirmCancel}
+                    isLoading={cancelTreatment.isPending}
+                />
+            )}
 
-                {showEditTreatmentForm && (
-                    <TreatmentForm
-                        open={showEditTreatmentForm}
-                        onOpenChange={setShowEditTreatmentForm}
-                        treatmentToEdit={treatmentToEdit}
-                        onSuccess={() => {
-                            setShowEditTreatmentForm(false);
-                            setTreatmentToEdit(null);
-                            refetchTreatments();
-                        }}
-                    />
-                )}
-            </div>
+            {deleteDialogOpen && (
+                <DeleteConfirmDialog
+                    open={deleteDialogOpen}
+                    onOpenChange={setDeleteDialogOpen}
+                    treatmentName={selectedTreatment?.name || ''}
+                    onConfirm={handleConfirmDelete}
+                    isLoading={false}
+                />
+            )}
+
+            {showEditTreatmentForm && (
+                <TreatmentForm
+                    open={showEditTreatmentForm}
+                    onOpenChange={setShowEditTreatmentForm}
+                    treatmentToEdit={treatmentToEdit}
+                    onSuccess={() => {
+                        setShowEditTreatmentForm(false);
+                        setTreatmentToEdit(null);
+                        refetchTreatments();
+                    }}
+                />
+            )}
         </div>
     );
 }
