@@ -2,6 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { appointmentService } from '@/services/appointment.service';
 import { CreateAppointmentDto, UpdateAppointmentDto, AppointmentFilters } from '@/types/appointment';
 import { toast } from 'sonner';
+import { parseApiError } from '@/lib/apiError';
+
+interface MutationOptions {
+    skipErrorToast?: boolean;
+}
 
 // Obtener citas con filtros
 export const useAppointments = (filters?: AppointmentFilters) => {
@@ -33,7 +38,7 @@ export const useAvailableSlots = (doctorId: number, date: string) => {
 };
 
 // Crear cita
-export const useCreateAppointment = () => {
+export const useCreateAppointment = (options?: MutationOptions) => {
     const queryClient = useQueryClient();
 
     return useMutation({
@@ -41,26 +46,51 @@ export const useCreateAppointment = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['appointments'] });
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Error al crear la cita');
+        onError: (error) => {
+            if (options?.skipErrorToast) return;
+
+            const parsed = parseApiError(error);
+            if (parsed.isBusinessError) {
+                toast.warning(parsed.title || 'Acción no permitida', {
+                    description: parsed.message,
+                    duration: 6000,
+                });
+            } else {
+                toast.error(parsed.title || 'Error', {
+                    description: parsed.message,
+                    duration: 5000,
+                });
+            }
         },
     });
 };
 
 // Actualizar cita
-export const useUpdateAppointment = () => {
+export const useUpdateAppointment = (options?: MutationOptions) => {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: ({ id, data }: { id: number; data: UpdateAppointmentDto }) =>
             appointmentService.update(id, data),
         onSuccess: (data) => {
-            toast.success('Cita actualizada correctamente');
             queryClient.invalidateQueries({ queryKey: ['appointments'] });
             queryClient.invalidateQueries({ queryKey: ['appointment', data.id] });
         },
-        onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Error al actualizar la cita');
+        onError: (error) => {
+            if (options?.skipErrorToast) return;
+
+            const parsed = parseApiError(error);
+            if (parsed.isBusinessError) {
+                toast.warning(parsed.title || 'Acción no permitida', {
+                    description: parsed.message,
+                    duration: 6000,
+                });
+            } else {
+                toast.error(parsed.title || 'Error', {
+                    description: parsed.message,
+                    duration: 5000,
+                });
+            }
         },
     });
 };

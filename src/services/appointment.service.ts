@@ -38,7 +38,7 @@ export const appointmentService = {
 
     // Actualizar cita
     update: async (id: number, data: UpdateAppointmentDto): Promise<Appointment> => {
-        const response = await api.put(`/appointment/${id}`, data);
+        const response = await api.patch(`/appointment/${id}`, data);
         return response.data;
     },
 

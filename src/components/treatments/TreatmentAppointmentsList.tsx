@@ -1,20 +1,42 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ColumnDef } from '@tanstack/react-table';
+import { useState } from 'react';
+import { CalendarClock, CheckCircle2, PlayCircle, CheckCheck, XCircle, UserX,
+    Eye, CalendarDays, User, Clock, Loader2, Lock, Ban, Circle, ChevronRight, ChevronLeft,
+    Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+    Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { DataTableShadcn } from '@/components/shared/DataTableShadcn';
 import { Appointment, AppointmentStatus } from '@/types/appointment';
-import { format } from 'date-fns';
+import { format, isToday, isTomorrow, isYesterday, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Eye, CalendarPlus } from 'lucide-react';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
 
 interface TreatmentAppointmentsListProps {
     appointments: Appointment[];
     isLoading?: boolean;
     onViewAppointment?: (appointment: Appointment) => void;
-    onCreateAppointment?: () => void;
+    onEdit?: (appointment: Appointment) => void;
+    onComplete?: (appointment: Appointment, reason?: string) => Promise<void> | void;
+    onNoShow?: (appointment: Appointment, reason?: string) => Promise<void> | void;
+    onCancel?: (appointment: Appointment, reason: string) => Promise<void> | void;
+    actionsDisabled?: boolean;
+    actionsDisabledReason?: string;
+    pagination?: {
+        currentPage: number;
+        totalPages: number;
+        totalItems: number;
+        itemsPerPage: number;
+        onPageChange: (page: number) => void;
+    };
 }
+
+type ActionType = 'complete' | 'noShow' | 'cancel';
 
 const statusLabels: Record<AppointmentStatus, string> = {
     SCHEDULED: 'Agendada',
@@ -27,176 +49,842 @@ const statusLabels: Record<AppointmentStatus, string> = {
 
 const statusColors: Record<AppointmentStatus, string> = {
     SCHEDULED: 'bg-blue-100 text-blue-700 hover:bg-blue-100',
-    CONFIRMED: 'bg-green-100 text-green-700 hover:bg-green-100',
-    IN_PROGRESS: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100',
-    COMPLETED: 'bg-gray-100 text-gray-700 hover:bg-gray-100',
-    CANCELLED: 'bg-red-100 text-red-700 hover:bg-red-100',
-    NO_SHOW: 'bg-red-100 text-red-700 hover:bg-red-100',
+    CONFIRMED: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100',
+    IN_PROGRESS: 'bg-amber-100 text-amber-700 hover:bg-amber-100',
+    COMPLETED: 'bg-green-100 text-green-800 hover:bg-green-100',
+    CANCELLED: 'bg-gray-200 text-gray-600 hover:bg-gray-200',
+    NO_SHOW: 'bg-orange-100 text-orange-700 hover:bg-orange-100',
 };
 
-const statusIcons: Record<AppointmentStatus, string> = {
-    SCHEDULED: '📅',
-    CONFIRMED: '✅',
-    IN_PROGRESS: '🔄',
-    COMPLETED: '✔️',
-    CANCELLED: '❌',
-    NO_SHOW: '🚫',
+const statusIcons: Record<AppointmentStatus, any> = {
+    SCHEDULED: CalendarClock,
+    CONFIRMED: CheckCircle2,
+    IN_PROGRESS: PlayCircle,
+    COMPLETED: CheckCheck,
+    CANCELLED: Ban,
+    NO_SHOW: UserX,
 };
 
+const actionConfig: Record<ActionType, {
+    title: string;
+    question: (date: string) => string;
+    note: string;
+    icon: any;
+    iconWrap: string;
+    iconColor: string;
+    box: string;
+    button: string;
+    confirmLabel: string;
+    loadingLabel: string;
+    requiresReason?: boolean;
+    reasonLabel?: string;
+    reasonPlaceholder?: string;
+}> = {
+    complete: {
+        title: 'Completar cita',
+        question: (date) => `¿Marcar la cita del ${date} como completada?`,
+        note: 'La cita quedará registrada como realizada.',
+        icon: CheckCircle2,
+        iconWrap: 'bg-green-100',
+        iconColor: 'text-green-600',
+        box: 'bg-green-50 border-green-200 text-green-700',
+        button: 'bg-green-600 hover:bg-green-700',
+        confirmLabel: 'Completar cita',
+        loadingLabel: 'Completando...',
+    },
+    noShow: {
+        title: 'Registrar inasistencia',
+        question: (date) => `¿Registrar que el paciente no asistió a la cita del ${date}?`,
+        note: 'La cita quedará marcada como "No asistió".',
+        icon: UserX,
+        iconWrap: 'bg-orange-100',
+        iconColor: 'text-orange-600',
+        box: 'bg-orange-50 border-orange-200 text-orange-700',
+        button: 'bg-orange-600 hover:bg-orange-700',
+        confirmLabel: 'Registrar inasistencia',
+        loadingLabel: 'Registrando...',
+        requiresReason: false,
+        reasonLabel: 'Motivo (opcional)',
+        reasonPlaceholder: 'Ej: El paciente avisó que no podía llegar',
+    },
+    cancel: {
+        title: 'Cancelar cita',
+        question: (date) => `¿Cancelar la cita del ${date}?`,
+        note: 'Esta acción no se puede deshacer. La cita quedará como cancelada.',
+        icon: XCircle,
+        iconWrap: 'bg-red-100',
+        iconColor: 'text-red-600',
+        box: 'bg-red-50 border-red-200 text-red-700',
+        button: 'bg-red-600 hover:bg-red-700',
+        confirmLabel: 'Cancelar cita',
+        loadingLabel: 'Cancelando...',
+        requiresReason: true,
+        reasonLabel: 'Motivo de la cancelación',
+        reasonPlaceholder: 'Ej: El paciente solicitó reprogramar',
+    },
+};
+
+/** Devuelve "Hoy", "Mañana", "Ayer" o null si no aplica */
+const getRelativeDateLabel = (date: Date): string | null => {
+    if (isToday(date)) return 'Hoy';
+    if (isTomorrow(date)) return 'Mañana';
+    if (isYesterday(date)) return 'Ayer';
+    return null;
+};
+
+/** Config visual de cada etiqueta relativa — pill + ícono + jerarquía */
+const relativeDateConfig: Record<string, { className: string; Icon: any }> = {
+    'Hoy': {
+        className: 'bg-blue-600 text-white shadow-sm ring-1 ring-primary-700/20',
+        Icon: Circle,
+    },
+    'Mañana': {
+        className: 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200',
+        Icon: ChevronRight,
+    },
+    'Ayer': {
+        className: 'bg-gray-100 text-gray-500 ring-1 ring-inset ring-gray-200',
+        Icon: ChevronLeft,
+    },
+};
+
+/** Pill reutilizable para Hoy / Mañana / Ayer */
+function RelativeDateBadge({ label }: { label: string }) {
+    const cfg = relativeDateConfig[label];
+    if (!cfg) return null;
+    const Icon = cfg.Icon;
+    const isToday = label === 'Hoy';
+
+    return (
+        <span
+            className={cn(
+                'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5',
+                'text-[9px] font-bold uppercase tracking-wider leading-none',
+                cfg.className
+            )}
+        >
+            <Icon
+                className={cn('h-2.5 w-2.5 shrink-0', isToday && 'fill-current')}
+                strokeWidth={isToday ? 0 : 3}
+            />
+            {label}
+        </span>
+    );
+}
+
+/** Determina si la cita está vencida (pasada y sin completar/cancelar/no-show) */
+const isOverdue = (appointment: Appointment): boolean => {
+    const date = new Date(appointment.appointmentDate);
+    return (
+        isPast(date) &&
+        appointment.status !== 'COMPLETED' &&
+        appointment.status !== 'CANCELLED' &&
+        appointment.status !== 'NO_SHOW'
+    );
+};
+
+/** Reglas de qué acciones están disponibles según el estado */
+const canComplete = (status: AppointmentStatus): boolean =>
+    ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'].includes(status);
+
+const canNoShow = (status: AppointmentStatus): boolean =>
+    ['SCHEDULED', 'CONFIRMED'].includes(status);
+
+const canCancel = (status: AppointmentStatus): boolean =>
+    ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'].includes(status);
+
+const canEdit = (status: AppointmentStatus): boolean =>
+    ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'].includes(status);
+
+/** Formatea la fecha de la cita para los diálogos */
+const formatApptDate = (appointment: Appointment): string =>
+    format(new Date(appointment.appointmentDate), "dd/MM/yyyy 'a las' HH:mm", { locale: es });
+
+/** Clases de fondo/borde del card según el estado final (mobile) */
+const getCardStateClasses = (status: AppointmentStatus): string => {
+    switch (status) {
+        case 'COMPLETED':
+            return 'border-green-200 bg-green-50/40';
+        case 'CANCELLED':
+            return 'border-gray-200 bg-gray-50/60 opacity-80';
+        case 'NO_SHOW':
+            return 'border-orange-200 bg-orange-50/40';
+        default:
+            return '';
+    }
+};
+
+/** Clases de color de texto para las celdas (desktop y mobile) */
+const getCellStateClasses = (status: AppointmentStatus): string => {
+    switch (status) {
+        case 'COMPLETED':
+            return 'text-green-700';
+        case 'CANCELLED':
+            return 'text-gray-400 line-through';
+        case 'NO_SHOW':
+            return 'text-orange-700';
+        default:
+            return 'text-gray-900';
+    }
+};
+
+/** Clases para el wrap del ícono de fecha en el card mobile */
+const getIconWrapClasses = (appointment: Appointment): string => {
+    const { status } = appointment;
+    if (isOverdue(appointment)) return 'bg-red-100 text-red-700';
+    switch (status) {
+        case 'COMPLETED':
+            return 'bg-green-100 text-green-700';
+        case 'CANCELLED':
+            return 'bg-gray-100 text-gray-500';
+        case 'NO_SHOW':
+            return 'bg-orange-100 text-orange-700';
+        default:
+            return 'bg-primary-50 text-primary-700';
+    }
+};
+
+/* ============================================================
+   MOBILE / TABLET CARD
+   ============================================================ */
+interface AppointmentCardProps {
+    appointment: Appointment;
+    onView?: (appointment: Appointment) => void;
+    onEdit?: (appointment: Appointment) => void;
+    onComplete?: (appointment: Appointment) => void;
+    onNoShow?: (appointment: Appointment) => void;
+    onCancel?: (appointment: Appointment) => void;
+    actionsDisabled?: boolean;
+}
+
+function AppointmentCard({
+    appointment,
+    onView,
+    onEdit,
+    onComplete,
+    onNoShow,
+    onCancel,
+    actionsDisabled,
+}: AppointmentCardProps) {
+    const date = new Date(appointment.appointmentDate);
+    const relativeLabel = getRelativeDateLabel(date);
+    const overdue = isOverdue(appointment);
+    const StatusIcon = statusIcons[appointment.status];
+    const isCancelled = appointment.status === 'CANCELLED';
+
+    const showEdit = canEdit(appointment.status) && onEdit && !actionsDisabled;
+    const showComplete = canComplete(appointment.status) && onComplete && !actionsDisabled;
+    const showNoShow = canNoShow(appointment.status) && onNoShow && !actionsDisabled;
+    const showCancel = canCancel(appointment.status) && onCancel && !actionsDisabled;
+
+    return (
+        <div
+            onClick={() => onView?.(appointment)}
+            className={cn(
+                'bg-white rounded-xl border border-gray-100 p-4 transition-all hover:shadow-md active:scale-[0.99] cursor-pointer h-full flex flex-col',
+                overdue && 'border-red-200 bg-red-50/30',
+                getCardStateClasses(appointment.status)
+            )}
+        >
+            {/* Header: fecha + estado */}
+            <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                    <div
+                        className={cn(
+                            'h-10 w-10 rounded-lg flex items-center justify-center shrink-0',
+                            getIconWrapClasses(appointment)
+                        )}
+                    >
+                        <CalendarDays className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                        {relativeLabel && (
+                            <div className="mb-1">
+                                <RelativeDateBadge label={relativeLabel} />
+                            </div>
+                        )}
+                        <p className={cn('text-sm font-semibold leading-tight', getCellStateClasses(appointment.status))}>
+                            {format(date, "d 'de' MMM", { locale: es })}
+                        </p>
+                    </div>
+                </div>
+                <Badge
+                    variant="default"
+                    className={cn('shrink-0 text-[10px] px-2 py-0.5 whitespace-nowrap', statusColors[appointment.status])}
+                >
+                    <StatusIcon className="h-3 w-3 mr-1" />
+                    {statusLabels[appointment.status]}
+                </Badge>
+            </div>
+
+            {/* Hora + duración */}
+            <div className="mt-3 flex items-center gap-2 text-sm text-gray-700">
+                <Clock className="h-4 w-4 text-gray-400 shrink-0" />
+                <span className={cn('font-medium', getCellStateClasses(appointment.status))}>
+                    {format(date, 'HH:mm')}
+                </span>
+                <span className="text-xs text-gray-400">· {appointment.duration} min</span>
+                {overdue && (
+                    <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-[10px] ml-auto">
+                        Vencida
+                    </Badge>
+                )}
+            </div>
+
+            {/* Doctor */}
+            <div className={cn(
+                'mt-2 flex items-center gap-2 text-xs min-w-0',
+                isCancelled ? 'text-gray-400' : 'text-gray-600'
+            )}>
+                <User className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                <span className="truncate" title={appointment.doctor?.name}>
+                    {appointment.doctor?.name || 'Sin doctor asignado'}
+                </span>
+            </div>
+
+            {/* Acciones */}
+            <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-100">
+                {onView && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onView(appointment);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-9 w-9"
+                        title="Ver detalle"
+                        aria-label="Ver detalle"
+                    >
+                        <Eye className="h-4 w-4" />
+                    </Button>
+                )}
+
+                {showEdit && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(appointment);
+                        }}
+                        className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 h-9 w-9"
+                        title="Editar cita"
+                        aria-label="Editar cita"
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+                )}
+
+                {showComplete && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onComplete(appointment);
+                        }}
+                        className="text-green-600 hover:text-green-800 hover:bg-green-50 h-9 w-9"
+                        title="Completar cita"
+                        aria-label="Completar cita"
+                    >
+                        <CheckCircle2 className="h-4 w-4" />
+                    </Button>
+                )}
+
+                {showNoShow && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onNoShow(appointment);
+                        }}
+                        className="text-orange-600 hover:text-orange-800 hover:bg-orange-50 h-9 w-9"
+                        title="Marcar como no asistió"
+                        aria-label="Marcar como no asistió"
+                    >
+                        <UserX className="h-4 w-4" />
+                    </Button>
+                )}
+
+                {showCancel && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onCancel(appointment);
+                        }}
+                        className="text-red-600 hover:text-red-800 hover:bg-red-50 h-9 w-9"
+                        title="Cancelar cita"
+                        aria-label="Cancelar cita"
+                    >
+                        <XCircle className="h-4 w-4" />
+                    </Button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* ============================================================
+   MAIN COMPONENT
+   ============================================================ */
 export function TreatmentAppointmentsList({
     appointments,
     isLoading,
     onViewAppointment,
-    onCreateAppointment,
+    onEdit,
+    onComplete,
+    onNoShow,
+    onCancel,
+    actionsDisabled = false,
+    actionsDisabledReason,
+    pagination,
 }: TreatmentAppointmentsListProps) {
-    if (isLoading) {
-        return (
-            <Card className="border-0 shadow-sm">
-                <CardHeader className="border-b bg-gray-50/50">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <CalendarIcon className="h-5 w-5 text-primary-600" />
-                            <CardTitle>Citas del tratamiento</CardTitle>
-                            <Skeleton className="h-5 w-16" />
-                        </div>
-                        <Skeleton className="h-9 w-32" />
-                    </div>
-                </CardHeader>
-                <CardContent className="pt-6">
-                    {[...Array(3)].map((_, i) => (
-                        <div key={i} className="flex items-center gap-4 py-3 border-b border-gray-100 last:border-0">
-                            <Skeleton className="h-4 w-24" />
-                            <Skeleton className="h-4 w-32" />
-                            <Skeleton className="h-4 w-28" />
-                            <Skeleton className="h-6 w-24" />
-                            <Skeleton className="h-8 w-8 ml-auto" />
-                        </div>
-                    ))}
-                </CardContent>
-            </Card>
-        );
-    }
+    const useCardView = useMediaQuery('(max-width: 1024px)');
 
-    if (!appointments || appointments.length === 0) {
-        return (
-            <Card className="border-0 shadow-sm">
-                <CardHeader className="border-b bg-gray-50/50">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <CalendarIcon className="h-5 w-5 text-primary-600" />
-                            <CardTitle>Citas del tratamiento</CardTitle>
-                            <Badge variant="outline">0 citas</Badge>
-                        </div>
-                        {onCreateAppointment && (
-                            <Button onClick={onCreateAppointment} className="gap-2 rounded-lg" size="sm">
-                                <CalendarPlus className="h-4 w-4" />
-                                Agendar Cita
-                            </Button>
-                            
-                        )}
-                    </div>
-                </CardHeader>
-                <CardContent className="py-12 text-center text-gray-500">
-                    <CalendarIcon className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                    <p className="text-lg font-medium text-gray-600">Sin citas programadas</p>
-                    <p className="text-sm">Este tratamiento no tiene citas asociadas</p>
-                    {onCreateAppointment && (
-                        <Button onClick={onCreateAppointment} className="mt-4 gap-2" variant="outline">
-                            <CalendarPlus className="h-4 w-4" />
-                            Agendar primera cita
-                        </Button>
-                    )}
-                </CardContent>
-            </Card>
-        );
-    }
+    const [pendingAction, setPendingAction] = useState<{ type: ActionType; appointment: Appointment } | null>(null);
+    const [isActing, setIsActing] = useState(false);
+    const [reason, setReason] = useState('');
 
-    // Ordenar citas por fecha (más recientes primero)
-    const sortedAppointments = [...appointments].sort(
-        (a, b) => new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime()
+    const closePendingAction = () => {
+        if (isActing) return;
+        setPendingAction(null);
+        setReason('');
+    };
+
+    const confirmAction = async () => {
+        if (!pendingAction) return;
+        const { type, appointment } = pendingAction;
+
+        setIsActing(true);
+        try {
+            const trimmedReason = reason.trim();
+            if (type === 'complete') {
+                await onComplete?.(appointment, trimmedReason || undefined);
+            } else if (type === 'noShow') {
+                await onNoShow?.(appointment, trimmedReason || undefined);
+            } else if (type === 'cancel') {
+                await onCancel?.(appointment, trimmedReason);
+            }
+            setPendingAction(null);
+            setReason('');
+        } catch {
+            // El error ya se notificó en el handler de la página
+        } finally {
+            setIsActing(false);
+        }
+    };
+
+    const pendingCfg = pendingAction ? actionConfig[pendingAction.type] : null;
+    const PendingIcon = pendingCfg?.icon;
+    const isReasonInvalid =
+        !!pendingCfg?.requiresReason &&
+        pendingAction?.type === 'cancel' &&
+        reason.trim().length < 3;
+
+    const actionsDisabledBanner = actionsDisabled && actionsDisabledReason && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+            <Lock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+            <p className="text-xs text-amber-700">{actionsDisabledReason}</p>
+        </div>
     );
 
-    return (
-        <Card className="border-0 shadow-sm">
-            <CardHeader className="border-b bg-gray-50/50">
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                        <CalendarIcon className="h-5 w-5 text-primary-600" />
-                        <CardTitle>Citas del tratamiento</CardTitle>
-                        <Badge variant="outline">
-                            {appointments.length} {appointments.length === 1 ? 'cita' : 'citas'}
-                        </Badge>
+    /* DIÁLOGO DE CONFIRMACIÓN — reutilizable mobile + desktop */
+    const confirmationDialog = pendingAction && pendingCfg && PendingIcon && (
+        <Dialog
+            open
+            onOpenChange={(open) => {
+                if (!open) closePendingAction();
+            }}
+        >
+            <DialogContent
+                className={cn(
+                    'w-[calc(100vw-2rem)] max-w-md max-h-[90vh]',
+                    'overflow-y-auto overflow-x-hidden',
+                    'p-4 sm:p-6',
+                    '[&>*]:min-w-0'
+                )}
+            >
+                <DialogHeader className="min-w-0">
+                    <div className="flex items-start sm:items-center gap-2 sm:gap-3 min-w-0">
+                        <div className={cn('p-2 rounded-full shrink-0', pendingCfg.iconWrap)}>
+                            <PendingIcon className={cn('h-5 w-5 sm:h-6 sm:w-6', pendingCfg.iconColor)} />
+                        </div>
+                        <DialogTitle className="text-base sm:text-xl font-bold leading-tight min-w-0 break-words">
+                            {pendingCfg.title}
+                        </DialogTitle>
                     </div>
-                    {onCreateAppointment && (
-                        <Button onClick={onCreateAppointment} className="gap-2" size="sm">
-                            <CalendarPlus className="h-4 w-4" />
-                            Agendar Cita
-                        </Button>
-                    )}
-                </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-                <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Fecha</TableHead>
-                                <TableHead>Hora</TableHead>
-                                <TableHead>Doctor</TableHead>
-                                <TableHead>Estado</TableHead>
-                                <TableHead className="text-right">Acciones</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {sortedAppointments.map((appointment) => {
-                                const appointmentDate = new Date(appointment.appointmentDate);
-                                const isPast = appointmentDate < new Date() && appointment.status !== 'COMPLETED' && appointment.status !== 'CANCELLED';
+                    <DialogDescription className="pt-2 text-xs sm:text-sm break-words">
+                        {pendingCfg.question(formatApptDate(pendingAction.appointment))}
+                    </DialogDescription>
+                </DialogHeader>
 
-                                return (
-                                    <TableRow key={appointment.id} className={cn(
-                                        "hover:bg-gray-50 transition-colors",
-                                        isPast && "bg-gray-50/50"
-                                    )}>
-                                        <TableCell>
-                                            <span className="font-medium">
-                                                {format(appointmentDate, "dd/MM/yyyy", { locale: es })}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>
-                                            {format(appointmentDate, "HH:mm")}
-                                            <span className="text-xs text-gray-400 ml-1">
-                                                ({appointment.duration} min)
-                                            </span>
-                                        </TableCell>
-                                        <TableCell>
-                                            {appointment.doctor?.name || 'No asignado'}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge className={statusColors[appointment.status]}>
-                                                <span className="mr-1">{statusIcons[appointment.status]}</span>
-                                                {statusLabels[appointment.status]}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            {onViewAppointment && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => onViewAppointment(appointment)}
-                                                    className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-8 w-8"
-                                                    title="Ver detalle"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
+                <div className={cn('border rounded-lg p-2.5 sm:p-3 text-xs sm:text-sm break-words', pendingCfg.box)}>
+                    {pendingCfg.note}
                 </div>
-            </CardContent>
-        </Card>
+
+                {(pendingAction.type === 'noShow' || pendingAction.type === 'cancel') && (
+                    <div className="space-y-2 min-w-0">
+                        <Label
+                            htmlFor="action-reason"
+                            className="text-xs sm:text-sm font-medium text-gray-700"
+                        >
+                            {pendingCfg.reasonLabel}
+                            {pendingCfg.requiresReason && <span className="text-red-500 ml-1">*</span>}
+                        </Label>
+                        <Textarea
+                            id="action-reason"
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                            placeholder={pendingCfg.reasonPlaceholder}
+                            rows={3}
+                            className="w-full resize-none text-sm"
+                            disabled={isActing}
+                        />
+                        {pendingCfg.requiresReason && isReasonInvalid && reason.length > 0 && (
+                            <p className="text-xs text-red-500">
+                                El motivo debe tener al menos 3 caracteres.
+                            </p>
+                        )}
+                    </div>
+                )}
+
+                <DialogFooter className="!flex-row justify-end gap-2 !space-x-0 pt-2 min-w-0">
+                    <Button
+                        variant="outline"
+                        onClick={closePendingAction}
+                        disabled={isActing}
+                        className="flex-1 sm:flex-initial min-w-0"
+                    >
+                        <span className="truncate min-w-0">Cancelar</span>
+                    </Button>
+                    <Button
+                        onClick={confirmAction}
+                        disabled={isActing || isReasonInvalid}
+                        className={cn(
+                            'text-white flex-1 sm:flex-initial min-w-0 gap-2',
+                            pendingCfg.button
+                        )}
+                    >
+                        {isActing ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                                <span className="truncate min-w-0">{pendingCfg.loadingLabel}</span>
+                            </>
+                        ) : (
+                            <>
+                                <PendingIcon className="h-4 w-4 shrink-0" />
+                                <span className="truncate min-w-0">{pendingCfg.confirmLabel}</span>
+                            </>
+                        )}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+
+    /* COLUMNAS PARA DESKTOP */
+    const columns: ColumnDef<Appointment>[] = [
+        {
+            accessorKey: 'appointmentDate',
+            header: 'Fecha',
+            size: 140,
+            cell: ({ row }) => {
+                const date = new Date(row.original.appointmentDate);
+                const relativeLabel = getRelativeDateLabel(date);
+                const overdue = isOverdue(row.original);
+                return (
+                    <div>
+                        {relativeLabel && (
+                            <div className="mb-1">
+                                <RelativeDateBadge label={relativeLabel} />
+                            </div>
+                        )}
+                        <span
+                            className={cn(
+                                'font-medium',
+                                overdue && 'text-red-600',
+                                !overdue && getCellStateClasses(row.original.status)
+                            )}
+                        >
+                            {format(date, "dd/MM/yyyy", { locale: es })}
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'duration',
+            header: 'Hora',
+            size: 100,
+            cell: ({ row }) => {
+                const date = new Date(row.original.appointmentDate);
+                const overdue = isOverdue(row.original);
+                return (
+                    <div>
+                        <span
+                            className={cn(
+                                'font-medium',
+                                overdue && 'text-red-600',
+                                !overdue && getCellStateClasses(row.original.status)
+                            )}
+                        >
+                            {format(date, 'HH:mm')}
+                        </span>
+                        <span className="text-xs text-gray-400 ml-1">
+                            ({row.original.duration} min)
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            accessorKey: 'doctor',
+            header: 'Doctor',
+            size: 180,
+            cell: ({ row }) => {
+                const doctor = row.original.doctor;
+                const isCancelled = row.original.status === 'CANCELLED';
+                return (
+                    <div className={cn('flex items-center gap-2 min-w-0', isCancelled && 'opacity-60')}>
+                        <User className="h-4 w-4 text-gray-400 shrink-0" />
+                        <span
+                            className={cn('truncate', isCancelled ? 'text-gray-400 line-through' : 'text-gray-600')}
+                            title={doctor?.name}
+                        >
+                            {doctor?.name || 'No asignado'}
+                        </span>
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'state',
+            header: 'Estado',
+            size: 140,
+            cell: ({ row }) => {
+                const status = row.original.status;
+                const StatusIcon = statusIcons[status];
+                const overdue = isOverdue(row.original);
+                return (
+                    <div className="flex items-center gap-2">
+                        <Badge className={cn('whitespace-nowrap', statusColors[status])}>
+                            <StatusIcon className="h-3 w-3 mr-1" />
+                            {statusLabels[status]}
+                        </Badge>
+                        {overdue && (
+                            <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-[10px]">
+                                Vencida
+                            </Badge>
+                        )}
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'actions',
+            header: 'Acciones',
+            size: 200,
+            cell: ({ row }) => {
+                const appointment = row.original;
+
+                const showEdit = canEdit(appointment.status) && onEdit && !actionsDisabled;
+                const showComplete = canComplete(appointment.status) && onComplete && !actionsDisabled;
+                const showNoShow = canNoShow(appointment.status) && onNoShow && !actionsDisabled;
+                const showCancel = canCancel(appointment.status) && onCancel && !actionsDisabled;
+
+                return (
+                    <div className="flex justify-end gap-1">
+                        {onViewAppointment && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onViewAppointment(appointment);
+                                }}
+                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-8 w-8"
+                                title="Ver detalle"
+                                aria-label="Ver detalle"
+                            >
+                                <Eye className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        {showEdit && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(appointment);
+                                }}
+                                className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 h-8 w-8"
+                                title="Editar cita"
+                                aria-label="Editar cita"
+                            >
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        {showComplete && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPendingAction({ type: 'complete', appointment });
+                                }}
+                                className="text-green-600 hover:text-green-800 hover:bg-green-50 h-8 w-8"
+                                title="Completar cita"
+                                aria-label="Completar cita"
+                            >
+                                <CheckCircle2 className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        {showNoShow && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPendingAction({ type: 'noShow', appointment });
+                                }}
+                                className="text-orange-600 hover:text-orange-800 hover:bg-orange-50 h-8 w-8"
+                                title="Marcar como no asistió"
+                                aria-label="Marcar como no asistió"
+                            >
+                                <UserX className="h-4 w-4" />
+                            </Button>
+                        )}
+
+                        {showCancel && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPendingAction({ type: 'cancel', appointment });
+                                }}
+                                className="text-red-600 hover:text-red-800 hover:bg-red-50 h-8 w-8"
+                                title="Cancelar cita"
+                                aria-label="Cancelar cita"
+                            >
+                                <XCircle className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ];
+
+    /* LOADING STATE (mobile/tablet) */
+    if (isLoading && useCardView) {
+        return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 animate-pulse">
+                        <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                <div className="h-10 w-10 rounded-lg bg-gray-200" />
+                                <div className="space-y-1">
+                                    <div className="h-3 bg-gray-200 rounded w-16" />
+                                    <div className="h-3 bg-gray-100 rounded w-20" />
+                                </div>
+                            </div>
+                            <div className="h-5 bg-gray-200 rounded w-20" />
+                        </div>
+                        <div className="mt-3 space-y-2">
+                            <div className="h-3 bg-gray-200 rounded w-2/3" />
+                            <div className="h-3 bg-gray-100 rounded w-1/2" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
+    /* EMPTY STATE (mobile/tablet) */
+    if (!appointments.length && !isLoading && useCardView) {
+        return (
+            <>
+                {actionsDisabledBanner}
+                <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
+                    <CalendarClock className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                    <p className="text-sm font-medium text-gray-700">Sin citas programadas</p>
+                    <p className="text-xs text-gray-500 mt-1">Este tratamiento no tiene citas asociadas</p>
+                </div>
+            </>
+        );
+    }
+
+    /* MOBILE / TABLET: cards */
+    if (useCardView) {
+        return (
+            <>
+                {actionsDisabledBanner}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {appointments.map((appointment) => (
+                        <AppointmentCard
+                            key={appointment.id}
+                            appointment={appointment}
+                            onView={onViewAppointment}
+                            onEdit={onEdit}
+                            onComplete={(a) => setPendingAction({ type: 'complete', appointment: a })}
+                            onNoShow={(a) => setPendingAction({ type: 'noShow', appointment: a })}
+                            onCancel={(a) => setPendingAction({ type: 'cancel', appointment: a })}
+                            actionsDisabled={actionsDisabled}
+                        />
+                    ))}
+                </div>
+
+                {pagination && pagination.totalPages > 1 && (
+                    <div className="flex items-center justify-between bg-white rounded-xl border border-gray-100 p-3 mt-3">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => pagination.onPageChange(pagination.currentPage - 1)}
+                            disabled={pagination.currentPage <= 1}
+                        >
+                            Anterior
+                        </Button>
+                        <span className="text-xs text-gray-600">
+                            {pagination.currentPage} / {pagination.totalPages}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => pagination.onPageChange(pagination.currentPage + 1)}
+                            disabled={pagination.currentPage >= pagination.totalPages}
+                        >
+                            Siguiente
+                        </Button>
+                    </div>
+                )}
+
+                {confirmationDialog}
+            </>
+        );
+    }
+
+    /* DESKTOP: tabla */
+    return (
+        <>
+            {actionsDisabledBanner}
+            <DataTableShadcn
+                columns={columns}
+                data={appointments}
+                isLoading={isLoading}
+                onRowClick={onViewAppointment}
+                pagination={pagination}
+            />
+
+            {confirmationDialog}
+        </>
     );
 }

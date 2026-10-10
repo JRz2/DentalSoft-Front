@@ -49,6 +49,7 @@ export interface CreateAppointmentDto {
     reason: string;
     notes?: string;
     treatmentId?: number;
+    allowPastDate?: boolean;
 }
 
 export interface UpdateAppointmentDto {

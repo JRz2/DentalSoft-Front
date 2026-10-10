@@ -8,6 +8,7 @@ export interface CreateAppointmentDto {
     reason: string;
     treatmentId: number;
     notes?: string;
+    allowPastDate?: boolean;
 }
 
 export const appointmentService = {
