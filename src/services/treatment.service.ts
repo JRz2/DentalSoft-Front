@@ -1,7 +1,55 @@
 import api from './api';
 import { Treatment, CreateTreatmentDto, UpdateTreatmentDto } from '@/types/treatment';
 
+export interface RegisterPaymentPayload {
+    amount: number;
+    paymentMethod: 'CASH' | 'TRANSFER' | 'CARD' | 'CHECK' | 'OTHER';
+    reference?: string;
+    notes?: string;
+}
+
+export interface UpdateCostPayload {
+    totalCost: number;
+    discount?: number;
+    reason?: string;
+}
+
+export interface VoidPaymentPayload {
+    reason: string;
+}
+
 export const treatmentService = {
+    // Registrar pago
+    registerPayment: async (
+        treatmentId: number,
+        data: RegisterPaymentPayload,
+        idempotencyKey?: string,
+    ) => {
+        const response = await api.post(
+            `/treatment/${treatmentId}/payment`,
+            data,
+            {
+                headers: idempotencyKey
+                    ? { 'Idempotency-Key': idempotencyKey }
+                    : {},
+            },
+        );
+        return response.data;
+    },
+
+    // Anular pago
+    voidPayment: async (
+        treatmentId: number,
+        paymentId: number,
+        data: VoidPaymentPayload,
+    ) => {
+        const response = await api.patch(
+            `/treatment/${treatmentId}/payment/${paymentId}/void`,
+            data,
+        );
+        return response.data;
+    },
+
     // Obtener tratamientos por paciente
     getByPatientId: async (patientId: number): Promise<Treatment[]> => {
         const response = await api.get(`/treatment/patient/${patientId}`);
@@ -50,13 +98,8 @@ export const treatmentService = {
         return response.data;
     },
 
-    registerPayment: async (treatmentId: number, data: {
-        amount: number;
-        paymentMethod: string;
-        reference?: string;
-        notes?: string;
-    }): Promise<any> => {
-        const response = await api.post(`/treatment/${treatmentId}/payment`, data);
+    updateCost: async (treatmentId: number, data: UpdateCostPayload) => {
+        const response = await api.patch(`/treatment/${treatmentId}/cost`, data);
         return response.data;
     },
 };

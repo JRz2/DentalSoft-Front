@@ -91,19 +91,19 @@ export function VoidPaymentDialog({
                     </p>
                 </div>
 
-                <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+                <div className="flex flex-row justify-end gap-2 pt-2">
                     <Button
                         variant="outline"
                         onClick={() => onOpenChange(false)}
                         disabled={isLoading}
-                        className="w-full sm:w-auto"
+                        className="px-6"
                     >
                         Cancelar
                     </Button>
                     <Button
                         onClick={handleConfirm}
                         disabled={isLoading || reason.trim().length < 5}
-                        className="gap-2 bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto"
+                        className="gap-2 bg-red-600 hover:bg-red-700 text-white px-6"
                     >
                         {isLoading ? (
                             <>
