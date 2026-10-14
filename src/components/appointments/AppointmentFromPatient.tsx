@@ -2,19 +2,23 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+import {
+    Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { useCreateAppointment } from '@/hooks/useAppointments';
 import { useStaff } from '@/hooks/useDoctors';
 import { CreateAppointmentDto } from '@/types/appointment';
-import { CalendarIcon as CalendarLucide, Stethoscope, Clock, FileText,
-    CalendarPlus, UserRound, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+    CalendarIcon as CalendarLucide, Stethoscope, Clock, FileText,
+    CalendarPlus, UserRound, Sparkles, CheckCircle2, AlertCircle, Loader2
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { clinicalHistoryService } from '@/services/clinicalHistory.service';
@@ -51,6 +55,14 @@ interface AppointmentFromPatientProps {
     defaultDate?: string;
 }
 
+const roleLabels: Record<string, string> = {
+    DOCTOR: 'Odontólogo',
+    ADMIN: 'Administrador',
+    ASSISTANT: 'Asistente',
+    RECEPTIONIST: 'Recepcionista',
+    OWNER: 'Propietario',
+};
+
 export function AppointmentFromPatient({
     open,
     onOpenChange,
@@ -60,7 +72,7 @@ export function AppointmentFromPatient({
     defaultDate,
 }: AppointmentFromPatientProps) {
     const createAppointment = useCreateAppointment();
-    const { data: staffData } = useStaff();
+    const { data: staffData, isLoading: staffLoading } = useStaff();
     const staff = staffData?.data || [];
     const [treatments, setTreatments] = useState<any[]>([]);
     const [isLoadingTreatments, setIsLoadingTreatments] = useState(false);
@@ -179,25 +191,31 @@ export function AppointmentFromPatient({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="w-full max-w-[90vw] md:max-w-[80vw] lg:max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-primary-50 to-white border-b px-6 py-4 rounded-t-2xl">
+                {/* Header con gradiente teal */}
+                <div className="bg-gradient-to-r from-teal-50 to-white border-b px-4 sm:px-6 py-4 rounded-t-2xl">
                     <DialogHeader>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-primary-100 rounded-xl">
-                                    <CalendarPlus className="h-5 w-5 text-primary-600" />
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="p-2 bg-teal-100 rounded-xl shrink-0">
+                                    <CalendarPlus className="h-5 w-5 text-teal-600" />
                                 </div>
-                                <div>
-                                    <DialogTitle className="text-xl font-bold text-gray-900">
+                                <div className="min-w-0">
+                                    <DialogTitle className="text-lg sm:text-xl font-bold text-gray-900">
                                         Agendar Cita
                                     </DialogTitle>
-                                    <DialogDescription className="flex items-center gap-1 text-sm text-gray-500">
-                                        <UserRound className="h-4 w-4" />
-                                        Programar cita para: <span className="font-medium text-gray-700">{patientName}</span>
+                                    <DialogDescription className="flex items-center gap-1 text-xs sm:text-sm text-gray-500">
+                                        <UserRound className="h-4 w-4 shrink-0" />
+                                        <span className="truncate">
+                                            Programar cita para:{' '}
+                                            <span className="font-medium text-gray-700">{patientName}</span>
+                                        </span>
                                     </DialogDescription>
                                 </div>
                             </div>
-                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 hidden sm:flex">
+                            <Badge
+                                variant="outline"
+                                className="text-xs bg-teal-50 text-teal-700 border-teal-200 hidden sm:flex shrink-0"
+                            >
                                 <Sparkles className="h-3 w-3 mr-1" />
                                 Nueva Cita
                             </Badge>
@@ -218,22 +236,57 @@ export function AppointmentFromPatient({
                                         <span className="text-red-500">*</span>
                                     </Label>
                                     <Select
-                                        onValueChange={(value) => setValue('doctorId', parseInt(value))}
-                                        value={watch('doctorId')?.toString() || ''}
+                                        onValueChange={(value) => {
+                                            setValue('doctorId', parseInt(value), {
+                                                shouldValidate: true,
+                                                shouldDirty: true,
+                                            });
+                                        }}
+                                        value={watch('doctorId') ? String(watch('doctorId')) : ''}
+                                        disabled={staffLoading}
                                     >
-                                        <SelectTrigger className={cn(
-                                            "w-full transition-all duration-200",
-                                            errors.doctorId && "border-red-500 focus-visible:ring-red-500",
-                                            watch('doctorId') && "border-green-300 bg-green-50/30"
-                                        )}>
+                                        <SelectTrigger
+                                            className={cn(
+                                                "w-full h-10",
+                                                errors.doctorId && "border-red-500 focus-visible:ring-red-500"
+                                            )}
+                                        >
                                             <SelectValue placeholder="Seleccionar doctor..." />
                                         </SelectTrigger>
-                                        <SelectContent>
-                                            {staff.map((user: any) => (
-                                                <SelectItem key={user.id} value={user.id.toString()}>
-                                                    {user.name} {user.role === 'DOCTOR' ? '👨‍⚕️' : '👩‍💼'}
-                                                </SelectItem>
-                                            ))}
+                                        <SelectContent
+                                            side="bottom"
+                                            position="popper"
+                                            align="start"
+                                            sideOffset={4}
+                                            className="max-h-[280px] w-[var(--radix-select-trigger-width)]"
+                                        >
+                                            {staffLoading ? (
+                                                <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                                                    <Loader2 className="h-4 w-4 animate-spin mx-auto mb-1" />
+                                                    Cargando doctores...
+                                                </div>
+                                            ) : staff.length === 0 ? (
+                                                <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                                                    No hay doctores disponibles
+                                                </div>
+                                            ) : (
+                                                staff.map((user: any) => (
+                                                    <SelectItem
+                                                        key={user.id}
+                                                        value={String(user.id)}
+                                                        className="py-2 cursor-pointer"
+                                                    >
+                                                        <div className="flex items-center gap-2 min-w-0 w-full">
+                                                            <span className="text-sm font-medium truncate">
+                                                                {user.name}
+                                                            </span>
+                                                            <span className="text-[11px] text-gray-400 shrink-0">
+                                                                · {roleLabels[user.role] || user.role}
+                                                            </span>
+                                                        </div>
+                                                    </SelectItem>
+                                                ))
+                                            )}
                                         </SelectContent>
                                     </Select>
                                     {errors.doctorId && (

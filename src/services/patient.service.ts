@@ -35,6 +35,7 @@ export const patientService = {
                     limit: responseData.meta.limit || 10,
                     totalPages: responseData.meta.totalPages || 1,
                     stats: responseData.meta.stats || {
+                        totalAll: 0,
                         totalActive: 0,
                         newThisMonth: 0,
                     },
@@ -66,7 +67,8 @@ export const patientService = {
                 page: params?.page || 1,
                 limit: params?.limit || 10,
                 totalPages: Math.ceil(data.length / (params?.limit || 10)) || 1,
-                stats: {
+                stats: responseData.stats || {
+                    totalAll: data.length,
                     totalActive: data.filter((p: any) => p.isActive).length,
                     newThisMonth: 0,
                 },

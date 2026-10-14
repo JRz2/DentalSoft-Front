@@ -1,7 +1,37 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { patientService } from '../services/patient.service';
 import { CreatePatientDto, UpdatePatientDto, PaginatedResponse, Patient } from '@/types/patient';
 import { toast } from 'sonner';
+
+// ============================================================
+// Helper para extraer el mensaje de error del backend
+// Maneja: string, array de class-validator, objeto { code, message }
+// ============================================================
+function extractErrorMessage(error: any, fallback: string): string {
+    const message = error.response?.data?.message;
+
+    // Caso 1: string simple
+    if (typeof message === 'string') return message;
+
+    // Caso 2: array de errores de class-validator
+    if (Array.isArray(message)) {
+        const messages = message
+            .map((item: any) => {
+                if (typeof item === 'string') return item;
+                if (item?.constraints) {
+                    return Object.values(item.constraints).join(', ');
+                }
+                return item?.message || null;
+            })
+            .filter(Boolean);
+        if (messages.length > 0) return messages.join('. ');
+    }
+
+    // Caso 3: objeto con message anidado (ej: ConflictException con code)
+    if (message?.message) return message.message;
+
+    return fallback;
+}
 
 // Query keys para cache
 export const patientKeys = {
@@ -30,6 +60,7 @@ export const usePatients = (params?: {
     return useQuery<PaginatedResponse<Patient>>({
         queryKey: ['patients', 'list', JSON.stringify(normalizedParams)],
         queryFn: () => patientService.getAll(normalizedParams),
+        placeholderData: keepPreviousData,
         retry: 1,
     });
 };
@@ -54,7 +85,12 @@ export const useCreatePatient = () => {
             toast.success('Paciente creado exitosamente');
         },
         onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Error al crear paciente');
+            const code = error.response?.data?.code;
+            if (code === 'PATIENT_DUPLICATE') {
+                toast.warning(extractErrorMessage(error, 'Paciente duplicado'));
+            } else {
+                toast.error(extractErrorMessage(error, 'Error al crear paciente'));
+            }
         },
     });
 };

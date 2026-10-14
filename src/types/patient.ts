@@ -1,8 +1,15 @@
+export interface PatientStats {
+    totalAll: number;
+    totalActive: number;
+    newThisMonth: number;
+    totalDeleted?: number;
+}
+
 export interface Patient {
     id: number;
     fullName: string;
-    phoneNumber: string;
-    email: string;
+    phoneNumber?: string;
+    email?: string;
     birthDate: string;
     address?: string;
     photoUrl?: string;
@@ -18,8 +25,8 @@ export interface Patient {
 
 export interface CreatePatientDto {
     fullName: string;
-    phoneNumber: string;
-    email: string;
+    phoneNumber?: string;
+    email?: string;
     birthDate: string;
     address?: string;
     photoUrl?: string;
@@ -49,10 +56,6 @@ export interface PaginatedResponse<T> {
         page: number;
         limit: number;
         totalPages: number;
-        stats?: {
-            totalActive: number;
-            newThisMonth: number;
-            totalDeleted?: number;
-        };
+        stats?: PatientStats;
     };
 }

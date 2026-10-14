@@ -3,13 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Users, UserCheck, UserPlus, UserX, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PatientTable } from '@/components/patients/PatientTable';
-import { PatientModal } from '@/components/patients/PatientModal';
+import { PatientForm } from '@/components/patients/PatientForm';
 import { DeleteConfirmDialog } from '@/components/patients/DeleteConfirmDialog';
 import { SearchBar } from '@/components/shared/SearchBar';
 import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient, useRestorePatient } from '@/hooks/usePatients';
 import { useAppointments } from '@/hooks/useAppointments';
 import { Patient, CreatePatientDto } from '@/types/patient';
-import api from '@/services/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { AppointmentFromPatient } from '@/components/appointments/AppointmentFromPatient';
@@ -17,6 +16,7 @@ import pacienteImg from '@/assets/images/paciente.png';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
 import { cn } from '@/lib/utils';
 import { format, startOfDay, endOfDay } from 'date-fns';
+import { patientService } from '@/services/patient.service';
 
 export function PatientsList() {
     const navigate = useNavigate();
@@ -53,7 +53,7 @@ export function PatientsList() {
     const deletePatient = useDeletePatient();
     const restorePatient = useRestorePatient();
     const patients = data?.data || [];
-    const totalPatients = data?.meta?.total || 0;
+    const totalPatients = data?.meta?.stats?.totalAll ?? 0;
     const activePatients = data?.meta?.stats?.totalActive || 0;
     const newThisMonth = data?.meta?.stats?.newThisMonth || 0;
     const inactivePatients = totalPatients - activePatients;
@@ -102,40 +102,30 @@ export function PatientsList() {
         setShowAppointmentModal(true);
     };
 
-    const handleSubmitForm = async (data: CreatePatientDto, files?: { photoFile?: File }) => {
+    const handleSubmitForm = async (
+        data: CreatePatientDto,
+        files?: { photoFile?: File },
+    ) => {
         try {
-            let photoUrl = data.photoUrl || '';
+            if (isEditing && selectedPatient) {
+                const { photoUrl: _, ...restData } = data;
+                await updatePatient.mutateAsync({
+                    id: selectedPatient.id,
+                    data: restData,
+                });
+            } else {
+                const { photoUrl: _, ...restData } = data;
+                const newPatient = await createPatient.mutateAsync(restData);
 
-            if (!isEditing && files?.photoFile) {
-                const formData = new FormData();
-                formData.append('file', files.photoFile);
-
-                try {
-                    const response = await api.post('/uploads/temp', formData, {
-                        headers: { 'Content-Type': 'multipart/form-data' },
-                    });
-                    photoUrl = response.data.fileUrl;
-                } catch (error) {
-                    console.error('Error al subir foto temporal:', error);
+                if (files?.photoFile && newPatient?.id) {
+                    try {
+                        await patientService.uploadPhoto(newPatient.id, files.photoFile);
+                    } catch (photoError) {
+                        console.error('Error al subir foto:', photoError);
+                    }
                 }
             }
 
-            let patientData;
-            if (isEditing && selectedPatient) {
-                const { photoUrl: _, ...restData } = data;
-                patientData = { ...restData };
-            } else {
-                patientData = { ...data, photoUrl };
-            }
-
-            if (isEditing && selectedPatient) {
-                await updatePatient.mutateAsync({
-                    id: selectedPatient.id,
-                    data: patientData,
-                });
-            } else {
-                await createPatient.mutateAsync(patientData);
-            }
             setModalOpen(false);
             refetch();
         } catch (error) {
@@ -340,14 +330,14 @@ export function PatientsList() {
                         : "translate-y-0 opacity-100"
                 )}
                 style={{
-                    bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
+                    bottom: 'calc(5rem + env(safe-area-inset-bottom))',
                 }}
             >
                 <Plus className="h-6 w-6" strokeWidth={2.5} />
             </button>
 
             {/* Modales */}
-            <PatientModal
+            <PatientForm
                 open={modalOpen}
                 onOpenChange={setModalOpen}
                 onSubmit={handleSubmitForm}
