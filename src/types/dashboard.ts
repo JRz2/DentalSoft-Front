@@ -1,3 +1,33 @@
+export type AlertSeverity = 'critical' | 'warning' | 'info' | 'success';
+
+export type AlertType =
+  | 'UNCONFIRMED_APPOINTMENTS'
+  | 'NO_SHOW'
+  | 'IN_PROGRESS'
+  | 'CANCELLED'
+  | 'PENDING_TREATMENTS'
+  | 'PENDING_PAYMENTS';
+
+export interface DashboardAlert {
+  type: AlertType;
+  severity: AlertSeverity;
+  count: number;
+  label: string;
+  description: string;
+  href: string;
+  metadata?: {
+    sampleNames?: string[];
+    totalAmount?: number;
+    daysOld?: number;
+  };
+}
+
+export interface DashboardAlertsResponse {
+  alerts: DashboardAlert[];
+  totalCount: number;
+  generatedAt: string;
+}
+
 export interface DashboardStats {
   totalPatients: number;
   pendingAppointments: number;
@@ -93,6 +123,25 @@ export interface MonthlyData {
   totalAppointments: number;
 }
 
+/* ============================================================
+   PRÓXIMA CITA — declarada ANTES de usarla
+   ============================================================ */
+export interface NextAppointment {
+  id: number;
+  date: string;
+  time: string;
+  patientName: string;
+  patientPhoto: string | null;
+  patientPhone: string | null;
+  doctorName: string | null;
+  treatment: string;
+  duration: number;
+  status: string;
+}
+
+/* ============================================================
+   DASHBOARD DATA
+   ============================================================ */
 export interface DashboardData {
   statistics: DashboardStats;
   weeklyActivity: WeeklyActivity;
@@ -100,6 +149,8 @@ export interface DashboardData {
   previousWeekActivity: WeeklyActivity;
   weekAppointments: WeeklyAppointment[];
   monthlyData: MonthlyData;
+  nextAppointments: NextAppointment[];
+  alerts: DashboardAlert[];
 }
 
 export interface ApiResponse<T> {
@@ -109,39 +160,44 @@ export interface ApiResponse<T> {
   timestamp: string;
 }
 
+/* ============================================================
+   VALORES INICIALES
+   ============================================================ */
 export const initialDashboardData: DashboardData = {
   statistics: {
     totalPatients: 0,
     pendingAppointments: 0,
     activeTreatments: 0,
-    monthlyIncome: 0
+    monthlyIncome: 0,
   },
   weeklyActivity: {
     weekStart: '',
     weekEnd: '',
     total: 0,
     statusBreakdown: [],
-    days: []
+    days: [],
   },
   weeklyTreatments: {
     weekStart: '',
     weekEnd: '',
     total: 0,
     statusBreakdown: [],
-    days: []
+    days: [],
   },
   previousWeekActivity: {
     weekStart: '',
     weekEnd: '',
     total: 0,
     statusBreakdown: [],
-    days: []
+    days: [],
   },
   weekAppointments: [],
   monthlyData: {
     year: 0,
     month: 0,
     daysWithAppointments: [],
-    totalAppointments: 0
-  }
+    totalAppointments: 0,
+  },
+  nextAppointments: [],
+  alerts: [],
 };

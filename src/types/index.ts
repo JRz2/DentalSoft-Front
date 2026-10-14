@@ -20,6 +20,7 @@ export interface User {
     role: string;
     specialty?: string;
     isActive: boolean;
+    photoUrl?: string;
 }
 
 export interface AuthResponse {
