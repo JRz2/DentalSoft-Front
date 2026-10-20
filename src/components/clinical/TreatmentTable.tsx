@@ -1,5 +1,5 @@
 import { ColumnDef } from '@tanstack/react-table';
-import { Pencil, Trash2, Eye, Pause, CheckCircle, XCircle, PlayCircle, CalendarDays, ListChecks, Play } from 'lucide-react';
+import { Pencil, Trash2, Eye, Pause, CheckCircle, XCircle, PlayCircle, CalendarDays, ListChecks, Play, Coins, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTableShadcn } from '@/components/shared/DataTableShadcn';
@@ -61,6 +61,32 @@ const formatDate = (dateString: string) => {
     }
 };
 
+/* ============================================================
+   HELPER DE COSTO (reutilizable en tabla y tarjeta)
+   ============================================================ */
+function CostCell({ cost }: { cost: number | string | null | undefined }) {
+    const numericCost = typeof cost === 'number' ? cost : parseFloat(cost as any);
+    const isFree = !isNaN(numericCost) && numericCost === 0;
+
+    if (isFree) {
+        return (
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
+                <Sparkles className="h-3 w-3" />
+                Gratis
+            </Badge>
+        );
+    }
+
+    return numericCost && !isNaN(numericCost) ? (
+        <div className="flex items-center gap-1">
+            <Coins className="h-3 w-3 text-gray-400" />
+            <span className="text-gray-600">Bs {numericCost.toFixed(2)}</span>
+        </div>
+    ) : (
+        <span className="text-gray-400">-</span>
+    );
+}
+
 /* TARJETA */
 interface CardProps {
     treatment: Treatment;
@@ -91,6 +117,10 @@ function TreatmentCard({
     const isCancelled = status === 'CANCELLED';
     const canStart = status === 'PLANNED';
     const canComplete = status === 'IN_PROGRESS';
+
+    const cost = treatment.totalCost;
+    const numericCost = typeof cost === 'number' ? cost : parseFloat(cost as any);
+    const isFree = !isNaN(numericCost) && numericCost === 0;
 
     return (
         <div
@@ -125,6 +155,21 @@ function TreatmentCard({
                         <ListChecks className="h-3 w-3 text-gray-400 shrink-0" />
                         <span>{treatment.estimatedSessions} sesiones</span>
                     </div>
+
+                    <div className="flex items-center gap-1">
+                        {isFree ? (
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] h-5 gap-1 px-1.5">
+                                <Sparkles className="h-2.5 w-2.5" />
+                                Gratis
+                            </Badge>
+                        ) : (
+                            <>
+                                <Coins className="h-3 w-3 text-gray-400 shrink-0" />
+                                <span>Bs {numericCost.toFixed(2)}</span>
+                            </>
+                        )}
+                    </div>
+
                     {treatment.createdAt && (
                         <div className="flex items-center gap-1">
                             <CalendarDays className="h-3 w-3 text-gray-400 shrink-0" />
@@ -225,7 +270,6 @@ export function TreatmentTable({
     pagination,
 }: TreatmentTableProps) {
     const navigate = useNavigate();
-    // Tarjetas hasta 1024px (celular + tablet/iPad mini), tabla completa recién en laptop/desktop
     const useCardView = useMediaQuery('(max-width: 1024px)');
     const { user } = useAuth();
     const isAdmin = user?.role === 'ADMIN';
@@ -296,6 +340,12 @@ export function TreatmentTable({
                     <span className="font-medium">{row.original.estimatedSessions}</span>
                 </div>
             ),
+        },
+        {
+            accessorKey: 'totalCost',
+            header: 'Costo',
+            size: 120,
+            cell: ({ row }) => <CostCell cost={row.original.totalCost} />,
         },
         {
             accessorKey: 'createdAt',

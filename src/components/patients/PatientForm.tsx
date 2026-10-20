@@ -227,7 +227,7 @@ export function PatientForm({
 
                                 <div className="space-y-2">
                                     <Label htmlFor="phoneNumber">
-                                        Teléfono
+                                        Celular
                                         <span className="text-xs text-gray-400 font-normal ml-1">(opcional)</span>
                                     </Label>
                                     <Input

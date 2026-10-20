@@ -17,7 +17,8 @@ import { useStaff } from '@/hooks/useDoctors';
 import { CreateAppointmentDto } from '@/types/appointment';
 import {
     CalendarIcon as CalendarLucide, Stethoscope, Clock, FileText,
-    CalendarPlus, UserRound, Sparkles, CheckCircle2, AlertCircle, Loader2
+    CalendarPlus, UserRound, Sparkles, CheckCircle2, AlertCircle, Loader2,
+    Ban
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -449,30 +450,80 @@ export function AppointmentFromPatient({
 
                             {/* Tratamiento asociado */}
                             <div className="space-y-2">
-                                <Label htmlFor="treatmentId" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                <Label
+                                    htmlFor="treatmentId"
+                                    className="flex items-center gap-2 text-sm font-medium text-gray-700"
+                                >
                                     <FileText className="h-4 w-4 text-gray-400" />
-                                    Tratamiento asociado
+                                    <span>Tratamiento asociado</span>
+                                    <span className="text-xs text-gray-400 font-normal">(opcional)</span>
                                 </Label>
                                 <Select
                                     onValueChange={(value) => {
                                         if (value === 'none') {
-                                            setValue('treatmentId', undefined);
+                                            setValue('treatmentId', undefined, {
+                                                shouldValidate: true,
+                                                shouldDirty: true,
+                                            });
                                         } else {
-                                            setValue('treatmentId', parseInt(value));
+                                            setValue('treatmentId', parseInt(value), {
+                                                shouldValidate: true,
+                                                shouldDirty: true,
+                                            });
                                         }
                                     }}
                                     value={watch('treatmentId')?.toString() || 'none'}
                                 >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder={isLoadingTreatments ? "Cargando tratamientos..." : "Sin tratamiento"} />
+                                    <SelectTrigger className="w-full h-10">
+                                        <SelectValue placeholder="Sin tratamiento" />
                                     </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">Sin tratamiento</SelectItem>
-                                        {treatments.map((treatment) => (
-                                            <SelectItem key={treatment.id} value={treatment.id.toString()}>
-                                                {treatment.name}
-                                            </SelectItem>
-                                        ))}
+                                    <SelectContent
+                                        side="bottom"
+                                        position="popper"
+                                        align="start"
+                                        sideOffset={4}
+                                        className="max-h-[280px] w-[var(--radix-select-trigger-width)]"
+                                    >
+                                        <SelectItem value="none" className="py-2 cursor-pointer">
+                                            <div className="flex items-center gap-2 text-gray-600">
+                                                <Ban className="h-4 w-4 shrink-0" />
+                                                <span className="text-sm">Sin tratamiento</span>
+                                            </div>
+                                        </SelectItem>
+
+                                        {isLoadingTreatments ? (
+                                            <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                                                <Loader2 className="h-4 w-4 animate-spin mx-auto mb-1" />
+                                                Cargando tratamientos...
+                                            </div>
+                                        ) : treatments.length === 0 ? (
+                                            <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                                                No hay tratamientos registrados
+                                            </div>
+                                        ) : (
+                                            treatments.map((treatment: any) => (
+                                                <SelectItem
+                                                    key={treatment.id}
+                                                    value={treatment.id.toString()}
+                                                    className="py-2 cursor-pointer"
+                                                >
+                                                    <div className="flex items-center gap-2 min-w-0 w-full">
+                                                        <span className="text-sm font-medium truncate">
+                                                            {treatment.name}
+                                                        </span>
+                                                        {treatment.status && (
+                                                            <span className="text-[11px] text-gray-400 shrink-0">
+                                                                · {treatment.status === 'IN_PROGRESS' ? 'En progreso' :
+                                                                    treatment.status === 'PLANNED' ? 'Planificado' :
+                                                                        treatment.status === 'COMPLETED' ? 'Completado' :
+                                                                            treatment.status === 'CANCELLED' ? 'Cancelado' :
+                                                                                treatment.status}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </SelectItem>
+                                            ))
+                                        )}
                                     </SelectContent>
                                 </Select>
                             </div>

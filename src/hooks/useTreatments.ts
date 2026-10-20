@@ -12,6 +12,28 @@ export const treatmentKeys = {
     detail: (id: number) => [...treatmentKeys.details(), id] as const,
 };
 
+function extractErrorMessage(error: any, fallback: string): string {
+    const message = error.response?.data?.message;
+
+    if (typeof message === 'string') return message;
+
+    if (Array.isArray(message)) {
+        const messages = message
+            .map((item: any) => {
+                if (typeof item === 'string') return item;
+                if (item?.constraints) {
+                    return Object.values(item.constraints).join(', ');
+                }
+                return item?.message || null;
+            })
+            .filter(Boolean);
+        if (messages.length > 0) return messages.join('. ');
+    }
+
+    if (message?.message) return message.message;
+    return fallback;
+}
+
 // Obtener tratamientos por paciente
 export const useTreatmentsByPatient = (patientId: number) => {
     return useQuery({
@@ -41,7 +63,7 @@ export const useCreateTreatment = () => {
             toast.success('Tratamiento creado exitosamente');
         },
         onError: (error: any) => {
-            toast.error(error.response?.data?.message || 'Error al crear tratamiento');
+            toast.error(extractErrorMessage(error, 'Error al crear tratamiento'));
         },
     });
 };
@@ -75,6 +97,38 @@ export const useCancelTreatment = () => {
         },
         onError: (error: any) => {
             toast.error(error.response?.data?.message || 'Error al cancelar tratamiento');
+        },
+    });
+};
+
+// Iniciar tratamiento
+export const useStartTreatment = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: number) => treatmentService.start(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: treatmentKeys.lists() });
+            toast.success('Tratamiento iniciado');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Error al iniciar el tratamiento');
+        },
+    });
+};
+
+// Completar tratamiento
+export const useCompleteTreatment = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: number) => treatmentService.complete(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: treatmentKeys.lists() });
+            toast.success('Tratamiento completado');
+        },
+        onError: (error: any) => {
+            toast.error(error.response?.data?.message || 'Error al completar el tratamiento');
         },
     });
 };

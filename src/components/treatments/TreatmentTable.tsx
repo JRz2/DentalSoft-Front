@@ -1,5 +1,5 @@
 import { ColumnDef } from '@tanstack/react-table';
-import { Eye, Pencil, Play, XCircle, User, Coins, CheckCircle, CalendarDays, ListChecks } from 'lucide-react';
+import { Eye, Pencil, Play, XCircle, Coins, CheckCircle, CalendarDays, ListChecks, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTableShadcn } from '@/components/shared/DataTableShadcn';
@@ -9,6 +9,7 @@ import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 interface TreatmentTableProps {
     data: Treatment[];
@@ -25,6 +26,36 @@ interface TreatmentTableProps {
         onPageChange: (page: number) => void;
     };
 }
+
+// ============================================================
+// HELPERS
+// ============================================================
+const getImageUrl = (path?: string | null) => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
+    if (path.startsWith('/')) return `${cleanBaseUrl}${path}`;
+    return `${cleanBaseUrl}/${path}`;
+};
+
+const getInitials = (name: string) => {
+    return name
+        .split(' ')
+        .map((word) => word[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
+};
+
+const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    try {
+        return format(new Date(dateString), 'dd/MM/yyyy', { locale: es });
+    } catch {
+        return '-';
+    }
+};
 
 const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
     PLANNED: { label: 'Planificado', className: 'bg-blue-100 text-blue-700', icon: Play },
@@ -47,16 +78,41 @@ const typeLabels: Record<string, string> = {
     MAINTENANCE: 'Mantenimiento',
 };
 
-const formatDate = (dateString: string) => {
-    if (!dateString) return '-';
-    try {
-        return format(new Date(dateString), 'dd/MM/yyyy', { locale: es });
-    } catch {
-        return '-';
-    }
-};
+/* ============================================================
+   AVATAR DEL PACIENTE
+   ============================================================ */
+function PatientAvatar({ photoUrl, fullName, size = 'sm' }: { photoUrl?: string | null; fullName: string; size?: 'sm' | 'md' }) {
+    const [imageError, setImageError] = useState(false);
+    const url = getImageUrl(photoUrl);
+    const hasPhoto = !!url && !imageError;
 
-/* MOBILE / TABLET CARD — sin ícono decorativo: todo el ancho es para el nombre */
+    const sizeClass = size === 'md' ? 'h-8 w-8 text-xs' : 'h-6 w-6 text-[10px]';
+
+    return (
+        <div
+            className={cn(
+                'rounded-full overflow-hidden bg-primary-100 text-primary-700',
+                'flex items-center justify-center font-bold shrink-0 border border-gray-200',
+                sizeClass
+            )}
+        >
+            {hasPhoto ? (
+                <img
+                    src={url}
+                    alt={fullName}
+                    className="h-full w-full object-cover"
+                    onError={() => setImageError(true)}
+                />
+            ) : (
+                <span>{getInitials(fullName)}</span>
+            )}
+        </div>
+    );
+}
+
+/* ============================================================
+   MOBILE / TABLET CARD
+   ============================================================ */
 interface CardProps {
     treatment: Treatment;
     onGoToDetail: (treatment: Treatment) => void;
@@ -78,24 +134,29 @@ function TreatmentCard({
 
     const cost = treatment.totalCost;
     const numericCost = typeof cost === 'number' ? cost : parseFloat(cost as any);
-    const hasCost = numericCost && !isNaN(numericCost);
+    const isFree = !isNaN(numericCost) && numericCost === 0;
 
     return (
         <div
             onClick={() => onGoToDetail(treatment)}
             className="bg-white rounded-xl border border-gray-100 p-4 transition-all hover:shadow-md active:scale-[0.99] cursor-pointer h-full flex flex-col"
         >
-            {/* Header: Nombre completo (sin ícono, todo el ancho disponible) + Estado */}
+            {/* Header: Nombre completo + Estado */}
             <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                     <h3 className="font-semibold text-gray-900 text-sm leading-snug" title={treatment.name}>
                         {treatment.name}
                     </h3>
                     {treatment.patient && (
-                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1" title={treatment.patient.fullName}>
-                            <User className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{treatment.patient.fullName}</span>
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-1.5 min-w-0">
+                            <PatientAvatar
+                                photoUrl={treatment.patient.photoUrl}
+                                fullName={treatment.patient.fullName}
+                            />
+                            <p className="text-xs text-gray-500 truncate" title={treatment.patient.fullName}>
+                                {treatment.patient.fullName}
+                            </p>
+                        </div>
                     )}
                 </div>
                 <Badge className={cn("shrink-0 text-[10px] px-2 py-0.5 whitespace-nowrap", config?.className)}>
@@ -105,7 +166,7 @@ function TreatmentCard({
             </div>
 
             {/* Info secundaria */}
-            <div className="mt-2.5 space-y-1.5 flex-1">
+            <div className="mt-3 space-y-2 flex-1">
                 <Badge variant="outline" className="bg-gray-50 text-[10px] px-1.5 py-0">
                     {typeLabels[treatment.type] || treatment.type}
                 </Badge>
@@ -114,12 +175,22 @@ function TreatmentCard({
                         <ListChecks className="h-3 w-3 text-gray-400 shrink-0" />
                         <span>{treatment.estimatedSessions} sesiones</span>
                     </div>
-                    {hasCost && (
-                        <div className="flex items-center gap-1">
-                            <Coins className="h-3 w-3 text-gray-400 shrink-0" />
-                            <span>Bs {numericCost.toFixed(2)}</span>
-                        </div>
-                    )}
+
+                    {/* Costo o Gratis */}
+                    <div className="flex items-center gap-1">
+                        {isFree ? (
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] h-5 gap-1 px-1.5">
+                                <Sparkles className="h-2.5 w-2.5" />
+                                Gratis
+                            </Badge>
+                        ) : (
+                            <>
+                                <Coins className="h-3 w-3 text-gray-400 shrink-0" />
+                                <span>Bs {numericCost.toFixed(2)}</span>
+                            </>
+                        )}
+                    </div>
+
                     {treatment.startDate && (
                         <div className="flex items-center gap-1">
                             <CalendarDays className="h-3 w-3 text-gray-400 shrink-0" />
@@ -193,7 +264,9 @@ function TreatmentCard({
     );
 }
 
-/* MAIN COMPONENT */
+/* ============================================================
+   MAIN COMPONENT
+   ============================================================ */
 export function TreatmentTable({
     data,
     isLoading,
@@ -204,8 +277,6 @@ export function TreatmentTable({
     pagination,
 }: TreatmentTableProps) {
     const navigate = useNavigate();
-    // Tarjetas hasta 1024px: cubre celulares Y tablets (iPad mini incluido en portrait ~768px).
-    // Solo a partir de laptop/desktop real se usa la tabla de 8 columnas.
     const useCardView = useMediaQuery('(max-width: 1024px)');
 
     const goToTreatmentDetail = (treatment: Treatment) => {
@@ -245,14 +316,18 @@ export function TreatmentTable({
         {
             accessorKey: 'patient',
             header: 'Paciente',
-            size: 180,
+            size: 200,
             cell: ({ row }) => {
                 const patient = row.original.patient;
                 return patient ? (
-                    <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-600">{patient.fullName}</span>
-                        <span className="text-xs text-gray-400">#{patient.medicalRecordNum}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <PatientAvatar
+                            photoUrl={patient.photoUrl}
+                            fullName={patient.fullName}
+                            size="md"
+                        />
+                        <span className="text-gray-600 truncate">{patient.fullName}</span>
+                        <span className="text-xs text-gray-400 shrink-0">#{patient.medicalRecordNum}</span>
                     </div>
                 ) : (
                     <span className="text-gray-400">-</span>
@@ -297,10 +372,21 @@ export function TreatmentTable({
         {
             accessorKey: 'totalCost',
             header: 'Costo',
-            size: 100,
+            size: 120,
             cell: ({ row }) => {
                 const cost = row.original.totalCost;
                 const numericCost = typeof cost === 'number' ? cost : parseFloat(cost as any);
+                const isFree = !isNaN(numericCost) && numericCost === 0;
+
+                if (isFree) {
+                    return (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
+                            <Sparkles className="h-3 w-3" />
+                            Gratis
+                        </Badge>
+                    );
+                }
+
                 return numericCost && !isNaN(numericCost) ? (
                     <div className="flex items-center gap-1">
                         <Coins className="h-3 w-3 text-gray-400" />
@@ -419,7 +505,7 @@ export function TreatmentTable({
         );
     }
 
-    /* RENDER MOBILE/TABLET: cards — 1 columna en celular, 2 columnas en tablet (sm:) */
+    /* RENDER MOBILE/TABLET */
     if (useCardView) {
         return (
             <div className="space-y-3">
@@ -463,7 +549,7 @@ export function TreatmentTable({
         );
     }
 
-    /* RENDER DESKTOP: tabla */
+    /* RENDER DESKTOP */
     return (
         <DataTableShadcn
             columns={columns}

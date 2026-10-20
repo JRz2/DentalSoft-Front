@@ -21,6 +21,7 @@ export interface Treatment {
         id: number;
         fullName: string;
         medicalRecordNum: string;
+        photoUrl?: string;
     };
 }
 

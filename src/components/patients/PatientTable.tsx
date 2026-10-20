@@ -272,9 +272,16 @@ export function PatientTable({
         },
         {
             accessorKey: 'phoneNumber',
-            header: 'Teléfono',
+            header: 'Celular',
             size: 150,
-            cell: ({ row }) => <div className="text-gray-600">{row.getValue('phoneNumber')}</div>,
+            cell: ({ row }) => {
+                const phone = row.getValue('phoneNumber') as string | undefined;
+                return phone ? (
+                    <div className="text-gray-600">{phone}</div>
+                ) : (
+                    <span className="text-gray-400 italic text-sm">Sin celular</span>
+                );
+            },
         },
         {
             accessorKey: 'medicalRecordNum',
