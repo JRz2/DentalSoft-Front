@@ -82,6 +82,13 @@ export const clinicalHistoryService = {
         return response.data;
     },
 
+    noShowSession: async (id: number, reason?: string): Promise<TreatmentSession> => {
+        const response = await api.patch(`/treatment-session/${id}/no-show`, {
+            reason: reason?.trim() || undefined,
+        });
+        return response.data;
+    },
+
     // Eliminar sesión
     deleteSession: async (id: number): Promise<void> => {
         await api.delete(`/treatment-session/${id}`);

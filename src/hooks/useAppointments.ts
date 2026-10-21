@@ -131,3 +131,13 @@ export const useDeleteAppointment = () => {
         },
     });
 };
+
+// Obtener citas de un paciente
+export const usePatientAppointments = (patientId?: number) => {
+    return useQuery({
+        queryKey: ['appointments', 'patient', patientId],
+        queryFn: () => appointmentService.getByPatient(patientId!),
+        enabled: !!patientId,
+        staleTime: 1000 * 60,
+    });
+};

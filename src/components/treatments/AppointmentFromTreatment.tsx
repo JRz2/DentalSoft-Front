@@ -1,23 +1,29 @@
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+import {
+    Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel,
-    AlertDialogContent, AlertDialogDescription, AlertDialogFooter,  AlertDialogHeader, 
-    AlertDialogTitle } from '@/components/ui/alert-dialog';
+import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel,
+    AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+    AlertDialogTitle
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger,
-    SelectValue } from '@/components/ui/select';
+import {
+    Select, SelectContent, SelectItem, SelectTrigger,
+    SelectValue
+} from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { useCreateAppointment, useUpdateAppointment } from '@/hooks/useAppointments';
 import { useStaff } from '@/hooks/useDoctors';
 import { CreateAppointmentDto, UpdateAppointmentDto, Appointment } from '@/types/appointment';
-import { CalendarIcon, Stethoscope, Clock, FileText, CalendarDays,
+import {
+    CalendarIcon, Stethoscope, Clock, FileText, CalendarDays,
     CheckCircle2, AlertCircle, Loader2, Ban, AlertTriangle, X, Pencil, History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -50,13 +56,30 @@ interface AppointmentFromTreatmentProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     patientId: number;
-    treatmentId: number;
-    treatmentName: string;
+    treatmentId?: number;
+    treatmentName?: string;
     sessions?: { id: number; sessionNumber: number }[];
     onSuccess: () => void;
     defaultDate?: string;
     appointmentToEdit?: Appointment | null;
 }
+
+// MAPEO Y ORDEN DE CAMPOS PARA EL SCROLL Y HIGHLIGHT
+const FIELD_ID_MAP: Record<string, string> = {
+    doctorId: 'appointment-doctorId',
+    appointmentDate: 'appointment-date-container',
+    appointmentTime: 'appointment-time',
+    duration: 'appointment-duration',
+    reason: 'appointment-reason',
+};
+
+const FIELD_ORDER: (keyof AppointmentFormData)[] = [
+    'doctorId',
+    'appointmentDate',
+    'appointmentTime',
+    'duration',
+    'reason',
+];
 
 const QUICK_TIMES = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'];
 
@@ -122,7 +145,7 @@ export function AppointmentFromTreatment({
             appointmentDate: defaultDate || getTodayLocalString(),
             appointmentTime: '09:00',
             duration: 30,
-            reason: `Cita para ${treatmentName}`,
+            reason: treatmentName ? `Cita para ${treatmentName}` : '',
             notes: '',
             sessionId: undefined,
         },
@@ -154,7 +177,7 @@ export function AppointmentFromTreatment({
                 appointmentDate: resetDateString,
                 appointmentTime: '09:00',
                 duration: 30,
-                reason: `Cita para ${treatmentName}`,
+                reason: treatmentName ? `Cita para ${treatmentName}` : '',
                 notes: '',
                 sessionId: undefined,
             });
@@ -175,9 +198,6 @@ export function AppointmentFromTreatment({
         setAvailabilityError(null);
     }, [watch('appointmentTime'), watch('doctorId'), watch('appointmentDate')]);
 
-    /* ──────────────────────────────────────────────────────────
-       SUBMIT CORE: crea o actualiza, con flag de retroactiva
-       ────────────────────────────────────────────────────────── */
     const submitAppointment = async (data: AppointmentFormData, isRetroactive: boolean) => {
         try {
             const appointmentDateTime = new Date(
@@ -206,7 +226,7 @@ export function AppointmentFromTreatment({
                     duration: data.duration,
                     reason: data.reason,
                     notes: data.notes,
-                    treatmentId,
+                    ...(treatmentId ? { treatmentId } : {}),
                     allowPastDate: isRetroactive,
                 };
                 await createAppointment.mutateAsync(createData);
@@ -222,14 +242,13 @@ export function AppointmentFromTreatment({
         } catch (error) {
             const parsed = parseApiError(error);
 
-            // ─── 1. Error de disponibilidad → SOLO banner inline (sin toast) ───
             if (
                 parsed.status === 400 &&
                 parsed.message.toLowerCase().includes('disponible')
             ) {
                 setAvailabilityError(parsed.message);
                 setTimeout(() => {
-                    document.getElementById('appointmentTime')?.scrollIntoView({
+                    document.getElementById('appointment-time')?.scrollIntoView({
                         behavior: 'smooth',
                         block: 'center',
                     });
@@ -237,14 +256,12 @@ export function AppointmentFromTreatment({
                 return;
             }
 
-            // ─── 2. Otros errores de negocio → toast warning ───
             if (parsed.isBusinessError) {
                 toast.warning(parsed.title || 'No se pudo guardar la cita', {
                     description: parsed.message,
                     duration: 6000,
                 });
             } else {
-                // ─── 3. Errores técnicos (500, red, 403) → toast error ───
                 toast.error(parsed.title || 'Error', {
                     description: parsed.message,
                     duration: 5000,
@@ -257,11 +274,7 @@ export function AppointmentFromTreatment({
         }
     };
 
-    /* ──────────────────────────────────────────────────────────
-       HANDLER DEL FORM: detecta retroactiva antes de enviar
-       ────────────────────────────────────────────────────────── */
     const onSubmit = async (data: AppointmentFormData) => {
-        // ⭐ Solo en modo crear: si la fecha es pasada, pedir confirmación
         if (!isEditing) {
             const selectedDateTime = new Date(
                 `${data.appointmentDate}T${data.appointmentTime}:00`
@@ -277,9 +290,32 @@ export function AppointmentFromTreatment({
         await submitAppointment(data, false);
     };
 
-    /* ──────────────────────────────────────────────────────────
-       CONFIRMAR RETROACTIVA
-       ────────────────────────────────────────────────────────── */
+    const onError = (formErrors: FieldErrors<AppointmentFormData>) => {
+        const firstError = FIELD_ORDER.find((field) => formErrors[field]);
+        if (!firstError) return;
+
+        const elementId = FIELD_ID_MAP[firstError] || firstError;
+        const el = document.getElementById(elementId);
+
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            try { el.focus({ preventScroll: true }); } catch { /* noop */ }
+
+            el.classList.add(
+                'ring-2', 'ring-red-500', 'ring-offset-2',
+                'transition-all', 'duration-300'
+            );
+            setTimeout(() => {
+                el.classList.remove('ring-2', 'ring-red-500', 'ring-offset-2');
+            }, 2500);
+        }
+
+        toast.error('Completa los campos requeridos', {
+            description: 'Revisa los campos marcados en rojo.',
+            duration: 4000,
+        });
+    };
+
     const handleConfirmRetroactive = async () => {
         if (!pendingFormData) return;
         const formData = pendingFormData;
@@ -303,27 +339,30 @@ export function AppointmentFromTreatment({
         <>
             <Dialog open={open} onOpenChange={onOpenChange}>
                 <DialogContent className="w-full max-w-[95vw] sm:max-w-lg md:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-0 gap-0">
-                    <div className="bg-gradient-to-r from-primary-50 to-white border-b px-4 sm:px-6 py-4 rounded-t-2xl">
+                    <div className="bg-gradient-to-r from-teal-50 to-white border-b px-4 sm:px-6 py-4 rounded-t-2xl">
                         <DialogHeader>
                             <div className="flex items-start justify-between gap-3">
                                 <div className="flex items-center gap-3 min-w-0">
-                                    <div className="p-2 bg-primary-100 rounded-xl shrink-0">
+                                    <div className="p-2 bg-teal-100 rounded-xl shrink-0">
                                         {isEditing ? (
-                                            <Pencil className="h-5 w-5 text-primary-600" />
+                                            <Pencil className="h-5 w-5 text-teal-600" />
                                         ) : (
-                                            <CalendarIcon className="h-5 w-5 text-primary-600" />
+                                            <CalendarIcon className="h-5 w-5 text-teal-600" />
                                         )}
                                     </div>
                                     <div className="min-w-0">
                                         <DialogTitle className="text-lg sm:text-xl font-bold text-gray-900">
                                             {isEditing ? 'Editar Cita' : 'Agendar Cita'}
                                         </DialogTitle>
-                                        <DialogDescription className="text-xs sm:text-sm text-gray-500">
+                                        <DialogDescription>
                                             {isEditing
-                                                ? `Modificá los datos de la cita para ${treatmentName}`
-                                                : `Programar una cita para ${treatmentName}`}
-                                            {!isEditing && selectedSession &&
-                                                ` - Sesión #${selectedSession.sessionNumber}`}
+                                                ? treatmentName
+                                                    ? `Modificá los datos de la cita para ${treatmentName}`
+                                                    : 'Modificá los datos de la cita'
+                                                : treatmentName
+                                                    ? `Programar una cita para ${treatmentName}`
+                                                    : 'Programar una nueva cita'}
+                                            {!isEditing && selectedSession && ` - Sesión #${selectedSession.sessionNumber}`}
                                         </DialogDescription>
                                     </div>
                                 </div>
@@ -343,8 +382,12 @@ export function AppointmentFromTreatment({
                     </div>
 
                     <div className="px-4 sm:px-6 py-4 sm:py-6">
-                        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 sm:space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-5 sm:space-y-6">
+                            {/* CAMBIO DE GRID: Si no hay treatmentId, el Doctor ocupa todo el ancho */}
+                            <div className={cn(
+                                "grid grid-cols-1 gap-4",
+                                (!isEditing && !!treatmentId) && "md:grid-cols-2"
+                            )}>
                                 {/* SELECT DOCTOR */}
                                 <div className="space-y-2">
                                     <Label className="flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -364,6 +407,7 @@ export function AppointmentFromTreatment({
                                         disabled={staffLoading}
                                     >
                                         <SelectTrigger
+                                            id="appointment-doctorId"
                                             className={cn(
                                                 'w-full h-10',
                                                 errors.doctorId && 'border-red-500 focus-visible:ring-red-500'
@@ -415,8 +459,8 @@ export function AppointmentFromTreatment({
                                     )}
                                 </div>
 
-                                {/* SELECT SESIÓN — solo en modo crear */}
-                                {!isEditing && (
+                                {/* ⭐ SELECT SESIÓN — Solo si viene de un tratamiento */}
+                                {!isEditing && !!treatmentId && (
                                     <>
                                         {sessions.length > 0 ? (
                                             <div className="space-y-2">
@@ -513,7 +557,7 @@ export function AppointmentFromTreatment({
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div className="space-y-2">
+                                <div id="appointment-date-container" className="space-y-2">
                                     <Label className="flex items-center gap-2 text-sm font-medium text-gray-700">
                                         <CalendarIcon className="h-4 w-4 text-gray-400" />
                                         <span>Fecha</span>
@@ -587,7 +631,7 @@ export function AppointmentFromTreatment({
                                         ))}
                                     </div>
                                     <Input
-                                        id="appointmentTime"
+                                        id="appointment-time"
                                         type="time"
                                         {...register('appointmentTime')}
                                         min="06:00"
@@ -633,7 +677,7 @@ export function AppointmentFromTreatment({
 
                             {/* Duración */}
                             <div className="space-y-2">
-                                <Label htmlFor="duration" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                <Label htmlFor="appointment-duration" className="flex items-center gap-2 text-sm font-medium text-gray-700">
                                     <Clock className="h-4 w-4 text-gray-400" />
                                     <span>Duración (minutos)</span>
                                     <span className="text-red-500">*</span>
@@ -655,7 +699,7 @@ export function AppointmentFromTreatment({
                                     ))}
                                 </div>
                                 <Input
-                                    id="duration"
+                                    id="appointment-duration"
                                     type="number"
                                     {...register('duration', { valueAsNumber: true })}
                                     min={15}
@@ -679,13 +723,13 @@ export function AppointmentFromTreatment({
                             {/* Motivo y Notas */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="reason" className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <Label htmlFor="appointment-reason" className="flex items-center gap-2 text-sm font-medium text-gray-700">
                                         <FileText className="h-4 w-4 text-gray-400" />
                                         <span>Motivo de la consulta</span>
                                         <span className="text-red-500">*</span>
                                     </Label>
                                     <Textarea
-                                        id="reason"
+                                        id="appointment-reason"
                                         {...register('reason')}
                                         placeholder="Motivo de la cita..."
                                         rows={3}
@@ -703,11 +747,11 @@ export function AppointmentFromTreatment({
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="notes" className="text-sm font-medium text-gray-700">
+                                    <Label htmlFor="appointment-notes" className="text-sm font-medium text-gray-700">
                                         Notas adicionales
                                     </Label>
                                     <Textarea
-                                        id="notes"
+                                        id="appointment-notes"
                                         {...register('notes')}
                                         placeholder="Información adicional sobre la cita..."
                                         rows={3}
@@ -716,7 +760,7 @@ export function AppointmentFromTreatment({
                                 </div>
                             </div>
 
-                            {/* Botones — lado a lado en mobile y desktop */}
+                            {/* Botones */}
                             <div className="flex flex-row justify-end gap-3 pt-4 border-t">
                                 <Button
                                     type="button"

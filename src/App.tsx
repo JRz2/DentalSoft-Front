@@ -13,6 +13,7 @@ import { UsersPage } from './pages/Users/UsersPage';
 import { ClinicsPage } from './pages/Clinics/ClinicsPage';
 import { TreatmentsPage } from './pages/Treatments/TreatmentsPage';
 import { AppointmentsPage } from './pages/Appointments/AppointmentsPage';
+import { PageHeaderProvider } from '@/contexts/PageHeaderContext';
 
 function AppRoutes() {
   useScrollToTop();
@@ -42,7 +43,9 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <PageHeaderProvider>
+          <AppRoutes />
+        </PageHeaderProvider>
       </AuthProvider>
     </BrowserRouter>
   );

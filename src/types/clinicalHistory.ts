@@ -56,6 +56,7 @@ export interface TreatmentSession {
     procedures?: any;
     appointmentId?: number | null;
     sessionDate?: string;
+    status?: 'PENDING' | 'COMPLETED' |'NO_SHOW' | 'CANCELLED';
     isCompleted?: boolean;
     completedAt?: string;
     createdAt?: string;

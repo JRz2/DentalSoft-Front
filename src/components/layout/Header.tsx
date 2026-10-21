@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePageHeaderContext } from '../../contexts/PageHeaderContext';
 import { Menu, User, LogOut, Settings, UserCircle, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -102,6 +103,7 @@ function UserAvatar({
 export const Header = ({ onMenuClick }: HeaderProps) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { header } = usePageHeaderContext();
 
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 
@@ -118,23 +120,35 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
         'bg-gradient-to-r from-teal-50/40 via-white to-white',
       )}
     >
-      <div className="flex h-16 items-center justify-between px-4 lg:px-6">
-        {/* Botón hamburguesa — solo mobile */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onMenuClick}
-          className="lg:hidden text-gray-600 hover:text-teal-600 hover:bg-teal-50"
-          aria-label="Abrir menú"
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
+      <div className="flex h-16 items-center justify-between gap-3 px-4 lg:px-6">
+        {/* ═════════ IZQUIERDA: menú (mobile) + título dinámico ═════════ */}
+        <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
+          {/* Botón hamburguesa — solo mobile */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onMenuClick}
+            className="lg:hidden text-gray-600 hover:text-teal-600 hover:bg-teal-50 shrink-0"
+            aria-label="Abrir menú"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
 
-        {/* Espacio para el logo en desktop */}
-        <div className="hidden lg:block w-10"></div>
+          {/* Título + descripción dinámicos */}
+          <div className="min-w-0 flex flex-col justify-center">
+            <h1 className="text-base lg:text-lg font-semibold text-gray-900 truncate leading-tight">
+              {header?.title || 'Clínica Dental'}
+            </h1>
+            {header?.description && (
+              <p className="text-xs text-gray-500 truncate leading-tight hidden sm:block">
+                {header.description}
+              </p>
+            )}
+          </div>
+        </div>
 
-        {/* Acciones de usuario */}
-        <div className="flex items-center gap-2 ml-auto">
+        {/* ═════════ DERECHA: acciones de usuario ═════════ */}
+        <div className="flex items-center gap-2 shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

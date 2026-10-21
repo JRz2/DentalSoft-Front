@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, Edit, Stethoscope, ClipboardList, Phone, Mail, Calendar as CalendarIcon,
-    MapPin, Search
+import {
+    Plus, Edit, Stethoscope, ClipboardList, Phone, Mail, Calendar as CalendarIcon,
+    MapPin, Search, AlertTriangle
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from '@/components/ui/select';
 import { usePatient } from '@/hooks/usePatients';
-import { useClinicalHistory, useCompleteTreatment, useTreatments, useStartTreatment,
+import {
+    useClinicalHistory, useCompleteTreatment, useTreatments, useStartTreatment,
     useCancelTreatment
 } from '@/hooks/useClinicalHistory';
 import { TreatmentForm } from '@/components/clinical/TreatmentForm';
@@ -22,9 +24,10 @@ import { StartTreatmentDialog } from '@/components/treatments/StartTreatmentDial
 import { CancelTreatmentDialog } from '@/components/treatments/CancelTreatmentDialog';
 import { DeleteConfirmDialog } from '@/components/treatments/DeleteConfirmDialog';
 import { clinicalHistoryService } from '@/services/clinicalHistory.service';
-import historyclinicImg from '@/assets/images/historyclinicImg.png';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
 import { cn } from '@/lib/utils';
+import { PatientAppointmentsCard } from '@/components/clinical/PatientAppointmentsCard'; 'lucide-react';
+import { usePageHeader } from '@/contexts/PageHeaderContext';
 
 // Opciones para filtros
 const statusOptions = [
@@ -70,7 +73,7 @@ export function ClinicalHistoryPage() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [typeFilter, setTypeFilter] = useState('all');
     const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 10;
+    const itemsPerPage = 5;
 
     const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
     const [startDialogOpen, setStartDialogOpen] = useState(false);
@@ -83,6 +86,11 @@ export function ClinicalHistoryPage() {
     const { data: patient, isLoading: patientLoading } = usePatient(patientId);
     const { data: clinicalHistory, isLoading: historyLoading, refetch: refetchHistory } = useClinicalHistory(patientId);
     const { data: treatments, isLoading: treatmentsLoading, refetch: refetchTreatments } = useTreatments(patientId);
+
+    usePageHeader(
+        'Historia Clínica',
+        'Registro completo de tratamientos y consultas del paciente'
+    );
 
     // Debounce del buscador
     useEffect(() => {
@@ -219,150 +227,190 @@ export function ClinicalHistoryPage() {
     return (
         <div className="space-y-4 md:space-y-6">
 
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 md:px-6 py-4 border-b border-gray-100">
-                    <div className="flex items-center gap-3 min-w-0">
-                        <img
-                            src={historyclinicImg}
-                            alt="Historia Clínica"
-                            className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover shrink-0"
-                        />
-                        <div className="min-w-0">
-                            <h1 className="text-lg md:text-2xl font-bold text-gray-900">
-                                Historia Clínica
-                            </h1>
-                            <p className="text-xs md:text-sm text-gray-500 mt-0.5 hidden sm:block">
-                                Registro completo de tratamientos y consultas del paciente
-                            </p>
-                        </div>
-                    </div>
-                    <Button
-                        variant="outline"
-                        onClick={() => navigate('/patients')}
-                        className="shrink-0 w-full sm:w-auto"
-                    >
-                        Volver a Pacientes
-                    </Button>
-                </div>
-
+            {/* ═══════════ HERO: Paciente + Info Clínica unificados ═══════════ */}
+            <Card className="overflow-hidden">
+                {/* ── Sección 1: Identidad del paciente ── */}
                 <div className="p-4 md:p-6">
-                    <div className="flex flex-col md:flex-row gap-4 md:gap-6">
-
-                        <div className="flex justify-center md:justify-start shrink-0">
-                            <div className="h-20 w-20 md:h-24 md:w-24 rounded-full border-4 border-primary-100 overflow-hidden bg-gray-50 flex items-center justify-center">
-                                {patient?.photoUrl && patient.photoUrl.trim() !== '' ? (
-                                    <img
-                                        src={getImageUrl(patient.photoUrl)}
-                                        alt={patient.fullName}
-                                        className="h-full w-full object-cover"
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = 'none';
-                                        }}
-                                    />
-                                ) : null}
-                                <span
-                                    className="text-gray-700 text-lg md:text-2xl font-semibold"
-                                    style={{
-                                        display: patient?.photoUrl && patient.photoUrl.trim() !== ''
-                                            ? 'none'
-                                            : 'block'
-                                    }}
-                                >
+                    <div className="flex items-start gap-4">
+                        {/* Avatar */}
+                        <div className="h-16 w-16 md:h-20 md:w-20 rounded-full border-4 border-primary-100 overflow-hidden bg-gray-50 flex items-center justify-center shrink-0">
+                            {patient.photoUrl && patient.photoUrl.trim() !== '' ? (
+                                <img
+                                    src={getImageUrl(patient.photoUrl)}
+                                    alt={patient.fullName}
+                                    className="h-full w-full object-cover"
+                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                            ) : (
+                                <span className="text-gray-700 text-lg md:text-xl font-semibold">
                                     {getInitials(patient.fullName)}
                                 </span>
-                            </div>
+                            )}
                         </div>
 
+                        {/* Datos */}
                         <div className="flex-1 min-w-0">
-                            <h2 className="text-xl md:text-2xl font-bold text-gray-900 text-center md:text-left truncate">
-                                {patient.fullName}
-                            </h2>
-
-                            <div className="mt-1 flex flex-wrap items-center justify-center md:justify-start gap-x-3 gap-y-1 text-sm text-gray-500">
-                                <span>Historia #{patient.medicalRecordNum}</span>
-                                {patient.createdAt && (
-                                    <>
-                                        <span className="hidden sm:inline text-gray-300">·</span>
-                                        <span>
-                                            Paciente desde {format(new Date(patient.createdAt), 'MMMM yyyy', { locale: es })}
-                                        </span>
-                                    </>
-                                )}
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <h1 className="text-xl md:text-2xl font-bold text-gray-900 truncate">
+                                        {patient.fullName}
+                                    </h1>
+                                    <p className="text-xs md:text-sm text-gray-500 mt-0.5">
+                                        Historia #{patient.medicalRecordNum}
+                                        {patient.createdAt && (
+                                            <>
+                                                <span className="hidden sm:inline text-gray-300 mx-1.5">·</span>
+                                                <span className="hidden sm:inline">
+                                                    Paciente desde {format(new Date(patient.createdAt), 'MMMM yyyy', { locale: es })}
+                                                </span>
+                                            </>
+                                        )}
+                                    </p>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => navigate('/patients')}
+                                    className="shrink-0"
+                                >
+                                    Volver a Pacientes
+                                </Button>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4 md:mt-5">
+                            {/* Chips de contacto */}
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 text-sm">
                                 {patient.email && (
-                                    <div className="flex items-center gap-2 text-sm min-w-0">
-                                        <Mail className="h-4 w-4 text-gray-400 shrink-0" />
-                                        <span className="text-gray-600 truncate">{patient.email}</span>
+                                    <div className="flex items-center gap-1.5 text-gray-600 min-w-0">
+                                        <Mail className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                        <span className="truncate">{patient.email}</span>
                                     </div>
                                 )}
                                 {patient.phoneNumber && (
-                                    <div className="flex items-center gap-2 text-sm min-w-0">
-                                        <Phone className="h-4 w-4 text-gray-400 shrink-0" />
-                                        <span className="text-gray-600 truncate">{patient.phoneNumber}</span>
+                                    <div className="flex items-center gap-1.5 text-gray-600">
+                                        <Phone className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                        <span>{patient.phoneNumber}</span>
                                     </div>
                                 )}
                                 {patient.birthDate && (
-                                    <div className="flex items-center gap-2 text-sm min-w-0">
-                                        <CalendarIcon className="h-4 w-4 text-gray-400 shrink-0" />
-                                        <span className="text-gray-600 truncate">
-                                            {format(new Date(patient.birthDate), 'dd/MM/yyyy')}
-                                        </span>
+                                    <div className="flex items-center gap-1.5 text-gray-600">
+                                        <CalendarIcon className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                        <span>{format(new Date(patient.birthDate), 'dd/MM/yyyy')}</span>
                                     </div>
                                 )}
                                 {patient.address && (
-                                    <div className="flex items-center gap-2 text-sm min-w-0 sm:col-span-2 lg:col-span-3">
-                                        <MapPin className="h-4 w-4 text-gray-400 shrink-0" />
-                                        <span className="text-gray-600 truncate">{patient.address}</span>
+                                    <div className="flex items-center gap-1.5 text-gray-600 min-w-0 w-full sm:w-auto">
+                                        <MapPin className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                        <span className="truncate">{patient.address}</span>
                                     </div>
                                 )}
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <Card className="border-l-4 border-l-primary-500">
-                <CardHeader>
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                            <div className="p-2 bg-primary-100 rounded-lg shrink-0">
-                                <Stethoscope className="h-5 w-5 text-primary-600" />
+                {/* ── Sección 2: Info clínica compacta con jerarquía de color ── */}
+                <div className="border-t border-gray-100 bg-gray-50/60">
+                    <div className="p-4 md:p-6">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <Stethoscope className="h-4 w-4 text-primary-600" />
+                                <h2 className="text-xs md:text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                                    Información Clínica
+                                </h2>
                             </div>
-                            <div className="min-w-0">
-                                <CardTitle>Información Clínica</CardTitle>
-                                <p className="text-sm text-gray-500 mt-1">Antecedentes médicos, alergias y observaciones</p>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowClinicalInfoForm(true)}
+                                className="h-8 text-xs shrink-0"
+                            >
+                                <Edit className="h-3.5 w-3.5 mr-1" />
+                                Actualizar
+                            </Button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3">
+                            {/* Antecedentes — azul */}
+                            <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <Stethoscope className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                                    <span className="text-[11px] font-semibold text-blue-700 uppercase tracking-wide">
+                                        Antecedentes
+                                    </span>
+                                </div>
+                                <p
+                                    className={cn(
+                                        'text-sm line-clamp-3',
+                                        clinicalHistory?.medicalHistory ? 'text-gray-700' : 'text-gray-400 italic'
+                                    )}
+                                    title={clinicalHistory?.medicalHistory || 'No registrados'}
+                                >
+                                    {clinicalHistory?.medicalHistory || 'No registrados'}
+                                </p>
+                            </div>
+
+                            {/* Alergias — rojo si hay, gris si no */}
+                            <div
+                                className={cn(
+                                    'p-3 rounded-lg border',
+                                    clinicalHistory?.allergies
+                                        ? 'bg-red-50 border-red-200'
+                                        : 'bg-white border-gray-200'
+                                )}
+                            >
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <AlertTriangle
+                                        className={cn(
+                                            'h-3.5 w-3.5 shrink-0',
+                                            clinicalHistory?.allergies ? 'text-red-600' : 'text-gray-400'
+                                        )}
+                                    />
+                                    <span
+                                        className={cn(
+                                            'text-[11px] font-semibold uppercase tracking-wide',
+                                            clinicalHistory?.allergies ? 'text-red-700' : 'text-gray-500'
+                                        )}
+                                    >
+                                        Alergias
+                                    </span>
+                                </div>
+                                <p
+                                    className={cn(
+                                        'text-sm line-clamp-3',
+                                        clinicalHistory?.allergies
+                                            ? 'text-red-800 font-medium'
+                                            : 'text-gray-400 italic'
+                                    )}
+                                    title={clinicalHistory?.allergies || 'No registradas'}
+                                >
+                                    {clinicalHistory?.allergies || 'No registradas'}
+                                </p>
+                            </div>
+
+                            {/* Observaciones — gris */}
+                            <div className="p-3 bg-white border border-gray-200 rounded-lg">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <ClipboardList className="h-3.5 w-3.5 text-gray-500 shrink-0" />
+                                    <span className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                                        Observaciones
+                                    </span>
+                                </div>
+                                <p
+                                    className={cn(
+                                        'text-sm line-clamp-3',
+                                        clinicalHistory?.observations ? 'text-gray-700' : 'text-gray-400 italic'
+                                    )}
+                                    title={clinicalHistory?.observations || 'No registradas'}
+                                >
+                                    {clinicalHistory?.observations || 'No registradas'}
+                                </p>
                             </div>
                         </div>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowClinicalInfoForm(true)}
-                            className="w-full sm:w-auto shrink-0"
-                        >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Actualizar
-                        </Button>
                     </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div>
-                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Antecedentes Médicos</label>
-                            <p className="mt-2 text-gray-700">{clinicalHistory?.medicalHistory || 'No registrados'}</p>
-                        </div>
-                        <div>
-                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Alergias</label>
-                            <p className="mt-2 text-gray-700">{clinicalHistory?.allergies || 'No registradas'}</p>
-                        </div>
-                        <div>
-                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Observaciones Generales</label>
-                            <p className="mt-2 text-gray-700">{clinicalHistory?.observations || 'No registradas'}</p>
-                        </div>
-                    </div>
-                </CardContent>
+                </div>
             </Card>
+            
+            <PatientAppointmentsCard patientId={patientId} />
 
             <Card className="overflow-visible">
                 {/* Sticky header con buscador y filtros */}
@@ -451,7 +499,7 @@ export function ClinicalHistoryPage() {
                                 : "translate-y-0 opacity-100"
                         )}
                         style={{
-                            bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
+                            bottom: 'calc(5rem + env(safe-area-inset-bottom))',
                         }}
                     >
                         <Plus className="h-6 w-6" strokeWidth={2.5} />
