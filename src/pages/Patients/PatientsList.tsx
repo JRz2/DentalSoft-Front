@@ -11,12 +11,12 @@ import { useAppointments } from '@/hooks/useAppointments';
 import { Patient, CreatePatientDto } from '@/types/patient';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
-import { AppointmentFromPatient } from '@/components/appointments/AppointmentFromPatient';
-import pacienteImg from '@/assets/images/paciente.png';
+import { AppointmentFromPatient } from '@/components/appointments/AppointmentFormModal';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
 import { cn } from '@/lib/utils';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { patientService } from '@/services/patient.service';
+import { usePageHeader } from '@/contexts/PageHeaderContext';
 
 export function PatientsList() {
     const navigate = useNavigate();
@@ -59,6 +59,11 @@ export function PatientsList() {
     const inactivePatients = totalPatients - activePatients;
     const todayAppointments = todayAppointmentsData?.data?.length || 0;
     const scrollDirection = useScrollDirection();
+
+    usePageHeader(
+        'Pacientes',
+        'Gestiona y administra los pacientes de tu clínica dental.'
+    );
 
     const handleSearch = (value: string) => {
         setSearchTerm(value);
@@ -199,33 +204,6 @@ export function PatientsList() {
 
     return (
         <div className="space-y-4 md:space-y-6">
-            {/* Header compacto */}
-            <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                    <img
-                        src={pacienteImg}
-                        alt="Pacientes"
-                        className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover shrink-0"
-                    />
-                    <div className="min-w-0">
-                        <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
-                            <span className="truncate">Pacientes</span>
-                        </h1>
-                        <p className="text-xs md:text-sm text-gray-500 mt-0.5 hidden sm:block">
-                            Gestiona todos los pacientes de la clínica
-                        </p>
-                    </div>
-                </div>
-
-                <Button
-                    onClick={handleCreate}
-                    className="gap-2 shadow-sm hover:shadow-md transition-shadow shrink-0 hidden lg:flex"
-                >
-                    <Plus className="h-4 w-4" />
-                    Nuevo Paciente
-                </Button>
-            </div>
-
             {/* Grid de estadísticas */}
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-4">
                 {statsCards.map((card, index) => {
@@ -272,7 +250,9 @@ export function PatientsList() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
                 {/* Sticky header */}
                 <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 px-4 md:px-6 py-3 md:py-4 rounded-t-2xl">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+
+                        {/* Título */}
                         <div className="min-w-0">
                             <h2 className="text-base md:text-lg font-semibold text-gray-900">
                                 Listado de Pacientes
@@ -281,12 +261,23 @@ export function PatientsList() {
                                 {totalPatients} {totalPatients === 1 ? 'paciente registrado' : 'pacientes registrados'}
                             </p>
                         </div>
-                        <div className="w-full sm:w-72">
-                            <SearchBar
-                                onSearch={handleSearch}
-                                placeholder="Buscar paciente..."
-                                delay={500}
-                            />
+
+                        {/* Acciones: Buscador + Botón (alineados) */}
+                        <div className="flex flex-col sm:flex-row items-center gap-2 w-full lg:w-auto">
+                            <div className="w-full sm:w-[280px]">
+                                <SearchBar
+                                    onSearch={handleSearch}
+                                    placeholder="Buscar paciente..."
+                                    delay={500}
+                                />
+                            </div>
+                            <Button
+                                onClick={handleCreate}
+                                className="w-full sm:w-auto shrink-0 gap-2 hidden lg:flex text-white shadow-sm transition-all"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Nuevo Paciente
+                            </Button>
                         </div>
                     </div>
                 </div>

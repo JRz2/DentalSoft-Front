@@ -11,7 +11,7 @@ import { format, startOfDay, isBefore, isToday, isTomorrow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { AppointmentDetailDialog } from '@/components/appointments/AppointmentDetailDialog';
-import { AppointmentFromTreatment } from '@/components/treatments/AppointmentFromTreatment';
+import { AppointmentFromPatient } from '@/components/appointments/AppointmentFromPatient';
 import { usePatient } from '@/hooks/usePatients';
 import { useNavigate } from 'react-router-dom';
 
@@ -91,6 +91,7 @@ export function PatientAppointmentsCard({ patientId, className }: PatientAppoint
     const [page, setPage] = useState(1);
     const { data: patient } = usePatient(patientId);
     const navigate = useNavigate();
+
     // Estados de modales
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [detailOpen, setDetailOpen] = useState(false);
@@ -388,11 +389,12 @@ export function PatientAppointmentsCard({ patientId, className }: PatientAppoint
                 showClinicalHistoryButton={false}
             />
 
-            {/* Modal: Crear cita (formulario genérico) */}
-            <AppointmentFromTreatment
+            {/* Modal: Crear cita desde Historia Clínica */}
+            <AppointmentFromPatient
                 open={createOpen}
                 onOpenChange={setCreateOpen}
                 patientId={patientId}
+                patientName={patient?.fullName || 'Paciente'}
                 onSuccess={() => {
                     setCreateOpen(false);
                 }}

@@ -9,9 +9,9 @@ import { SearchBar } from '@/components/shared/SearchBar';
 import { Plus, Activity, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Treatment } from '@/types/treatment';
-import tratamientoImg from '@/assets/images/consultorio.png';
 import { cn } from '@/lib/utils';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
+import { usePageHeader } from '@/contexts/PageHeaderContext';
 
 export function TreatmentsPage() {
     const navigate = useNavigate();
@@ -44,6 +44,12 @@ export function TreatmentsPage() {
     const paginatedTreatments = filteredTreatments.slice(
         (currentPage - 1) * itemsPerPage,
         currentPage * itemsPerPage
+    );
+
+
+    usePageHeader(
+        'Tratamientos',
+        'Gestiona los tratamientos de tus pacientes.'
     );
 
     const handleSearch = (value: string) => {
@@ -142,28 +148,6 @@ export function TreatmentsPage() {
 
     return (
         <div className="space-y-4 md:space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                    <img
-                        src={tratamientoImg}
-                        alt="Tratamientos"
-                        className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover shrink-0"
-                    />
-                    <div>
-                        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Tratamientos</h1>
-                        <p className="text-xs md:text-sm text-gray-500 mt-0.5 hidden sm:block">
-                            Gestiona todos los tratamientos odontológicos
-                        </p>
-                    </div>
-                </div>
-                <Button onClick={handleOpenCreate} className="gap-2 shadow-sm hover:shadow-md transition-shadow shrink-0 hidden lg:flex"
-                >
-                    <Plus className="h-4 w-4" />
-                    Nuevo Tratamiento
-                </Button>
-            </div>
-
             {/* Tarjetas de estadísticas — 2 columnas en mobile, 4 en desktop */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
                 {statsCards.map((card, index) => {
@@ -192,7 +176,9 @@ export function TreatmentsPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
                 {/* Sticky header */}
                 <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 px-4 md:px-6 py-3 md:py-4 rounded-t-2xl">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+
+                        {/* Título */}
                         <div className="min-w-0">
                             <h2 className="text-base md:text-lg font-semibold text-gray-900">
                                 Listado de Tratamientos
@@ -201,12 +187,22 @@ export function TreatmentsPage() {
                                 {total} {total === 1 ? 'tratamiento registrado' : 'tratamientos registrados'}
                             </p>
                         </div>
-                        <div className="w-full sm:w-72">
-                            <SearchBar
-                                onSearch={handleSearch}
-                                placeholder="Buscar tratamiento..."
-                                delay={500}
-                            />
+                        <div className="flex flex-col sm:flex-row items-center gap-2 w-full lg:w-auto">
+                            <div className="w-full sm:w-[280px]">
+                                <SearchBar
+                                    onSearch={handleSearch}
+                                    placeholder="Buscar tratamiento..."
+                                    delay={500}
+                                />
+                            </div>
+
+                            <Button
+                                onClick={handleOpenCreate}
+                                className="w-full sm:w-auto shrink-0 gap-2 hidden lg:flex text-white shadow-sm transition-all"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Nuevo Tratamiento
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -249,7 +245,7 @@ export function TreatmentsPage() {
                         : "translate-y-0 opacity-100"
                 )}
                 style={{
-                    bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
+                    bottom: 'calc(5rem + env(safe-area-inset-bottom))',
                 }}
             >
                 <Plus className="h-6 w-6" strokeWidth={2.5} />
