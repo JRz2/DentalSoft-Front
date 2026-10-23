@@ -1,530 +1,68 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Plus, Clock, Stethoscope, CalendarPlus, Image, CreditCard, ListChecks, PlayCircle, CheckCircle2, AlertCircle, ChevronRight, Lock } from 'lucide-react';
+import {
+    Clock, Stethoscope, CalendarPlus, Image, CreditCard, ListChecks, PlayCircle, CheckCircle2, AlertCircle, ChevronRight, Lock
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SessionForm } from '@/components/clinical/SessionForm';
-import { SessionTable } from '@/components/clinical/SessionTable';
-import { PaymentSummary } from '@/components/treatments/PaymentSummary';
-import { PaymentHistory } from '@/components/treatments/PaymentHistory';
 import { RegisterPaymentModal } from '@/components/treatments/RegisterPaymentModal';
-import { Treatment, TreatmentSession } from '@/types/clinicalHistory';
-import { clinicalHistoryService } from '@/services/clinicalHistory.service';
-import { usePatient } from '@/hooks/usePatients';
-import { toast } from 'sonner';
-import { ImageCarousel } from '@/components/treatments/ImageGallery';
 import { UploadImageModal } from '@/components/treatments/UploadImageModal';
-import { useMediaByTreatment, useDeleteMedia } from '@/hooks/useMedia';
 import { AppointmentFromTreatment } from '@/components/treatments/AppointmentFromTreatment';
-import { TreatmentAppointmentsList } from '@/components/treatments/TreatmentAppointmentsList';
 import { AppointmentDetailDialog } from '@/components/appointments/AppointmentDetailDialog';
-import { Appointment } from '@/types/appointment';
-import { appointmentService } from '@/services/appointment.service';
 import { PaymentDetailDialog } from '@/components/treatments/PaymentDetailDialog';
 import { VoidPaymentDialog } from '@/components/treatments/VoidPaymentDialog';
-import { useStartTreatment, useCompleteTreatment } from '@/hooks/useTreatments';
 import { StartTreatmentDialog } from '@/components/treatments/StartTreatmentDialog';
 import { CompleteTreatmentDialog } from '@/components/treatments/CompleteTreatmentDialog';
-import { SearchBar } from '@/components/shared/SearchBar';
-import { useScrollDirection } from '@/hooks/useScrollDirection';
-import dentplusImg from '@/assets/images/dentplus.png';
 import { cn } from '@/lib/utils';
-import { treatmentService } from '@/services/treatment.service';
-import { parseApiError } from '@/lib/apiError';
-import { format } from 'date-fns';
-
-const typeLabels: Record<string, string> = {
-    DIAGNOSIS: 'Diagnóstico',
-    PREVENTIVE: 'Preventivo',
-    RESTORATIVE: 'Restaurador',
-    ENDODONTIC: 'Endodoncia',
-    PERIODONTAL: 'Periodoncia',
-    ORTHODONTIC: 'Ortodoncia',
-    SURGICAL: 'Quirúrgico',
-    PROSTHETIC: 'Prótesis',
-    AESTHETIC: 'Estética',
-    MAINTENANCE: 'Mantenimiento',
-};
-
-const statusColors: Record<string, string> = {
-    PLANNED: 'bg-blue-100 text-blue-700',
-    IN_PROGRESS: 'bg-yellow-100 text-yellow-700',
-    ON_HOLD: 'bg-orange-100 text-orange-700',
-    COMPLETED: 'bg-green-100 text-green-700',
-    CANCELLED: 'bg-red-100 text-red-700',
-};
-
-const statusLabels: Record<string, string> = {
-    PLANNED: 'Planificado',
-    IN_PROGRESS: 'En Progreso',
-    ON_HOLD: 'En Espera',
-    COMPLETED: 'Completado',
-    CANCELLED: 'Cancelado',
-};
-
-const appointmentStatusLabels: Record<string, string> = {
-    SCHEDULED: 'Agendada',
-    CONFIRMED: 'Confirmada',
-    IN_PROGRESS: 'En curso',
-    COMPLETED: 'Completada',
-    CANCELLED: 'Cancelada',
-    NO_SHOW: 'No asistió',
-};
-
-const getInitials = (name: string) => {
-    return name
-        .split(' ')
-        .map(word => word[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase();
-};
-
-const getImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-        return path;
-    }
-    if (path.startsWith('/')) {
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
-        return `${cleanBaseUrl}${path}`;
-    }
-    return path;
-};
-
-const toNumber = (value: unknown): number => {
-    if (typeof value === 'number') return isNaN(value) ? 0 : value;
-    if (typeof value === 'string') {
-        const parsed = parseFloat(value);
-        return isNaN(parsed) ? 0 : parsed;
-    }
-    return 0;
-};
+import { usePageHeader } from '@/contexts/PageHeaderContext';
+import { typeLabels, statusColors, statusLabels, getInitials, getImageUrl } from '@/lib/treatmentUtils';
+import { TreatmentSessionsTab } from '@/components/treatments/tabs/TreatmentSessionsTab';
+import { TreatmentAppointmentsTab } from '@/components/treatments/tabs/TreatmentAppointmentsTab';
+import { TreatmentImagesTab } from '@/components/treatments/tabs/TreatmentImagesTab';
+import { TreatmentPaymentsTab } from '@/components/treatments/tabs/TreatmentPaymentsTab';
+import { TreatmentMobileFAB } from '@/components/treatments/TreatmentMobileFAB';
+import { useTreatmentSessions } from '@/hooks/useTreatmentSessions';
 
 export function TreatmentSessionsPage() {
     const { treatmentId, patientId } = useParams<{ treatmentId: string; patientId: string }>();
     const navigate = useNavigate();
-
-    const [treatment, setTreatment] = useState<Treatment | null>(null);
-    const [sessions, setSessions] = useState<TreatmentSession[]>([]);
-    const [paymentStatus, setPaymentStatus] = useState<any>(null);
-    const [appointments, setAppointments] = useState<Appointment[]>([]);
-    const [showSessionForm, setShowSessionForm] = useState(false);
-
-    // Buscador y paginación de sesiones
-    const [sessionSearchTerm, setSessionSearchTerm] = useState('');
-    const [sessionsCurrentPage, setSessionsCurrentPage] = useState(1);
-    const sessionsItemsPerPage = 10;
-
-    // Buscador y paginación de citas
-    const [appointmentsSearchTerm, setAppointmentsSearchTerm] = useState('');
-    const [appointmentsCurrentPage, setAppointmentsCurrentPage] = useState(1);
-    const appointmentsItemsPerPage = 10;
-
-    // Solo carga inicial de la página
-    const [isInitialLoading, setIsInitialLoading] = useState(true);
-
-    // Loaders granulares por sección
-    const [sessionsLoading, setSessionsLoading] = useState(false);
-    const [appointmentsLoading, setAppointmentsLoading] = useState(false);
-    const [paymentsLoading, setPaymentsLoading] = useState(false);
-
-    const [showUploadModal, setShowUploadModal] = useState(false);
-    const [showAppointmentForm, setShowAppointmentForm] = useState(false);
-    const [appointmentToEdit, setAppointmentToEdit] = useState<Appointment | null>(null);
     const [activeTab, setActiveTab] = useState('sessions');
 
-    // Detalle de cita
-    const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-    const [showAppointmentDetail, setShowAppointmentDetail] = useState(false);
+    usePageHeader('Tratamiento', 'Registro completo del tratamiento y sesiones.');
 
-    const [showStartDialog, setShowStartDialog] = useState(false);
-    const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+    const {
+        treatment, sessions, appointments, paymentStatus, images, patient,
+        isLoading, sessionsLoading, appointmentsLoading, paymentsLoading, imagesLoading,
+        
+        showSessionForm, setShowSessionForm,
+        showUploadModal, setShowUploadModal,
+        showAppointmentForm, handleAppointmentFormClose, appointmentToEdit,
+        showStartDialog, setShowStartDialog,
+        showCompleteDialog, setShowCompleteDialog,
+        showPaymentModal, setShowPaymentModal,
 
-    const [selectedPayment, setSelectedPayment] = useState<any>(null);
-    const [showPaymentDetail, setShowPaymentDetail] = useState(false);
-    const [showVoidDialog, setShowVoidDialog] = useState(false);
-    const [isVoiding, setIsVoiding] = useState(false);
+        selectedPayment, setSelectedPayment, showPaymentDetail, setShowPaymentDetail,
+        showVoidDialog, setShowVoidDialog, isVoiding,
+        selectedAppointment, setSelectedAppointment, showAppointmentDetail, setShowAppointmentDetail,
+        
+        handleSessionAdded, handleCompleteSession, handleNoShowSession,
+        handleOpenCreateAppointment, handleEditAppointment, handleAppointmentCreated,
+        handleViewAppointment, handleCompleteAppointment, handleNoShowAppointment, handleCancelAppointment,
+        handlePaymentRegistered, handleViewPayment, handleVoidPaymentClick, handleConfirmVoidPayment,
+        confirmStart, confirmComplete,
+        
+        startTreatment, completeTreatment, deleteMedia, nextSessionNumber,
+        isPlanned, isInProgress, isCompleted, isCancelled, isFinished,
+        sessionsDisabled, appointmentsDisabled, imagesDisabled, paymentsDisabled, imagesDisabledReason,
+        finalAmountValue, amountPaidValue, remainingBalanceValue,
+        
+        reloadSessions, reloadAppointments, reloadPayments
+    } = useTreatmentSessions(treatmentId, patientId);
 
-    // Modal de registro de pago 
-    const [showPaymentModal, setShowPaymentModal] = useState(false);
-
-    const scrollDirection = useScrollDirection();
-
-    const { data: patient, isLoading: patientLoading } = usePatient(parseInt(patientId || '0'));
-    const { data: images, isLoading: imagesLoading } = useMediaByTreatment(
-        treatment ? treatment.id : 0
-    );
-    const deleteMedia = useDeleteMedia(treatment ? treatment.id : 0);
-    const startTreatment = useStartTreatment();
-    const completeTreatment = useCompleteTreatment();
-
-    // ============ LOADERS GRANULARES ============
-
-    const treatmentIdNum = treatmentId ? parseInt(treatmentId) : null;
-
-    const loadAllData = async () => {
-        if (!treatmentIdNum) return;
-        setIsInitialLoading(true);
-        try {
-            const [treatmentData, sessionsData, paymentData, appointmentsData] = await Promise.all([
-                clinicalHistoryService.getTreatmentById(treatmentIdNum),
-                clinicalHistoryService.getSessionsByTreatment(treatmentIdNum),
-                clinicalHistoryService.getPaymentStatus(treatmentIdNum),
-                appointmentService.getByTreatment(treatmentIdNum),
-            ]);
-            setTreatment(treatmentData);
-            setSessions(sessionsData);
-            setPaymentStatus(paymentData);
-            setAppointments(appointmentsData || []);
-        } catch (error) {
-            console.error('Error al cargar datos:', error);
-            toast.error('Error al cargar los datos del tratamiento');
-        } finally {
-            setIsInitialLoading(false);
-        }
-    };
-
-    const reloadSessions = async () => {
-        if (!treatmentIdNum) return;
-        setSessionsLoading(true);
-        try {
-            const data = await clinicalHistoryService.getSessionsByTreatment(treatmentIdNum);
-            setSessions(data);
-        } catch (error) {
-            console.error('Error al recargar sesiones:', error);
-        } finally {
-            setSessionsLoading(false);
-        }
-    };
-
-    const reloadTreatment = async () => {
-        if (!treatmentIdNum) return;
-        try {
-            const data = await clinicalHistoryService.getTreatmentById(treatmentIdNum);
-            setTreatment(data);
-        } catch (error) {
-            console.error('Error al recargar tratamiento:', error);
-        }
-    };
-
-    const reloadAppointments = async () => {
-        if (!treatmentIdNum) return;
-        setAppointmentsLoading(true);
-        try {
-            const data = await appointmentService.getByTreatment(treatmentIdNum);
-            setAppointments(data || []);
-        } catch (error) {
-            console.error('Error al recargar citas:', error);
-        } finally {
-            setAppointmentsLoading(false);
-        }
-    };
-
-    const reloadPayments = async () => {
-        if (!treatmentIdNum) return;
-        setPaymentsLoading(true);
-        try {
-            const data = await clinicalHistoryService.getPaymentStatus(treatmentIdNum);
-            setPaymentStatus(data);
-        } catch (error) {
-            console.error('Error al recargar pagos:', error);
-        } finally {
-            setPaymentsLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        if (treatmentIdNum) {
-            loadAllData();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [treatmentIdNum]);
-
-    useEffect(() => {
-        setSessionsCurrentPage(1);
-    }, [sessionSearchTerm]);
-
-    useEffect(() => {
-        setAppointmentsCurrentPage(1);
-    }, [appointmentsSearchTerm]);
-
-    // ============ HANDLERS ============
-
-    const handleSessionAdded = async () => {
-        setShowSessionForm(false);
-        await reloadSessions();
-    };
-
-    const handleAppointmentCreated = async () => {
-        setShowAppointmentForm(false);
-        setAppointmentToEdit(null);
-        await reloadAppointments();
-    };
-
-    const handleOpenCreateAppointment = () => {
-        setAppointmentToEdit(null);
-        setShowAppointmentForm(true);
-    };
-
-    const handleEditAppointment = (appointment: Appointment) => {
-        setAppointmentToEdit(appointment);
-        setShowAppointmentForm(true);
-    };
-
-    const handleAppointmentFormClose = (open: boolean) => {
-        setShowAppointmentForm(open);
-        if (!open) setAppointmentToEdit(null);
-    };
-
-    const handleViewAppointment = (appointment: Appointment) => {
-        setSelectedAppointment(appointment);
-        setShowAppointmentDetail(true);
-    };
-
-    const handleCompleteSession = async (session: TreatmentSession) => {
-        try {
-            await clinicalHistoryService.completeSession(session.id);
-            toast.success('Sesión completada correctamente');
-            await Promise.all([reloadSessions(), reloadTreatment()]);
-        } catch (error) {
-            const parsed = parseApiError(error);
-            if (parsed.isBusinessError) {
-                toast.warning(parsed.title || 'No se pudo completar', {
-                    description: parsed.message,
-                });
-            } else {
-                toast.error(parsed.title || 'Error', {
-                    description: parsed.message,
-                });
-            }
-            throw error;
-        }
-    };
-
-    const handleNoShowSession = async (session: TreatmentSession, reason?: string) => {
-        try {
-            await clinicalHistoryService.noShowSession(session.id, reason);
-            toast.success('Inasistencia registrada');
-            await reloadSessions();
-        } catch (error) {
-            const parsed = parseApiError(error);
-            if (parsed.isBusinessError) {
-                toast.warning(parsed.title || 'No se pudo registrar', {
-                    description: parsed.message,
-                });
-            } else {
-                toast.error(parsed.title || 'Error', {
-                    description: parsed.message,
-                });
-            }
-            throw error;
-        }
-    };
-
-    const handleCompleteAppointment = async (appointment: Appointment) => {
-        try {
-            await appointmentService.updateStatus(appointment.id, 'COMPLETED');
-            toast.success('Cita completada correctamente');
-            await reloadAppointments();
-        } catch (error) {
-            const parsed = parseApiError(error);
-            if (parsed.isBusinessError) {
-                toast.warning(parsed.title || 'No se pudo completar', {
-                    description: parsed.message,
-                });
-            } else {
-                toast.error(parsed.title || 'Error', {
-                    description: parsed.message,
-                });
-            }
-            throw error;
-        }
-    };
-
-    const handleNoShowAppointment = async (appointment: Appointment, reason?: string) => {
-        try {
-            await appointmentService.updateStatus(appointment.id, 'NO_SHOW', reason);
-            toast.success('Inasistencia registrada');
-            await reloadAppointments();
-        } catch (error) {
-            const parsed = parseApiError(error);
-            if (parsed.isBusinessError) {
-                toast.warning(parsed.title || 'No se pudo registrar', {
-                    description: parsed.message,
-                });
-            } else {
-                toast.error(parsed.title || 'Error', {
-                    description: parsed.message,
-                });
-            }
-            throw error;
-        }
-    };
-
-    const handleCancelAppointment = async (appointment: Appointment, reason: string) => {
-        try {
-            await appointmentService.updateStatus(appointment.id, 'CANCELLED', reason);
-            toast.success('Cita cancelada correctamente');
-            await reloadAppointments();
-        } catch (error) {
-            const parsed = parseApiError(error);
-            if (parsed.isBusinessError) {
-                toast.warning(parsed.title || 'No se pudo cancelar', {
-                    description: parsed.message,
-                });
-            } else {
-                toast.error(parsed.title || 'Error', {
-                    description: parsed.message,
-                });
-            }
-            throw error;
-        }
-    };
-
-    const handlePaymentRegistered = async () => {
-        await reloadPayments();
-    };
-
-    const handleViewPayment = (payment: any) => {
-        setSelectedPayment(payment);
-        setShowPaymentDetail(true);
-    };
-
-    const handleVoidPaymentClick = (payment: any) => {
-        setSelectedPayment(payment);
-        setShowVoidDialog(true);
-    };
-
-    const handleConfirmVoidPayment = async (reason: string) => {
-        if (!selectedPayment || !treatmentIdNum) return;
-        setIsVoiding(true);
-        try {
-            await treatmentService.voidPayment(treatmentIdNum, selectedPayment.id, { reason });
-            toast.success('Pago anulado correctamente');
-            setShowVoidDialog(false);
-            setSelectedPayment(null);
-            await reloadPayments();
-        } catch (error: any) {
-            const code = error.response?.data?.code;
-            const message = error.response?.data?.message;
-
-            if (code === 'PAYMENT_ALREADY_VOIDED') {
-                toast.warning('Este pago ya estaba anulado');
-                setShowVoidDialog(false);
-                setSelectedPayment(null);
-                await reloadPayments();
-                return;
-            }
-
-            console.error('Error al anular pago:', error);
-            toast.error(message || 'Error al anular el pago');
-        } finally {
-            setIsVoiding(false);
-        }
-    };
-
-    const confirmStart = () => {
-        if (!treatment) return;
-        startTreatment.mutate(treatment.id, {
-            onSuccess: async () => {
-                setShowStartDialog(false);
-                await Promise.all([reloadTreatment(), reloadSessions()]);
-            },
-        });
-    };
-
-    const confirmComplete = () => {
-        if (!treatment) return;
-        completeTreatment.mutate(treatment.id, {
-            onSuccess: async () => {
-                setShowCompleteDialog(false);
-                await Promise.all([reloadTreatment(), reloadSessions()]);
-            },
-        });
-    };
-
-    const nextSessionNumber = sessions.length + 1;
-
-    // Filtrado y paginación de sesiones
-    const filteredSessions = sessions.filter((s) => {
-        if (!sessionSearchTerm) return true;
-        const term = sessionSearchTerm.toLowerCase();
-        return (
-            s.description?.toLowerCase().includes(term) ||
-            s.notes?.toLowerCase().includes(term) ||
-            String(s.sessionNumber).includes(term)
-        );
-    });
-
-    const sessionsTotalPages = Math.ceil(filteredSessions.length / sessionsItemsPerPage);
-    const paginatedSessions = filteredSessions.slice(
-        (sessionsCurrentPage - 1) * sessionsItemsPerPage,
-        sessionsCurrentPage * sessionsItemsPerPage
-    );
-
-    // Filtrado y paginación de citas
-    const filteredAppointments = appointments.filter((a) => {
-        if (!appointmentsSearchTerm) return true;
-        const term = appointmentsSearchTerm.toLowerCase();
-        const dateStr = format(new Date(a.appointmentDate), 'dd/MM/yyyy');
-        return (
-            a.doctor?.name?.toLowerCase().includes(term) ||
-            dateStr.includes(term) ||
-            appointmentStatusLabels[a.status]?.toLowerCase().includes(term) ||
-            a.status.toLowerCase().includes(term)
-        );
-    });
-
-    const appointmentsTotalPages = Math.ceil(filteredAppointments.length / appointmentsItemsPerPage);
-    const paginatedAppointments = filteredAppointments.slice(
-        (appointmentsCurrentPage - 1) * appointmentsItemsPerPage,
-        appointmentsCurrentPage * appointmentsItemsPerPage
-    );
-
-    const sortedPaginatedAppointments = [...paginatedAppointments].sort(
-        (a, b) => new Date(b.appointmentDate).getTime() - new Date(a.appointmentDate).getTime()
-    );
-
-    const isPlanned = treatment?.status === 'PLANNED';
-    const isInProgress = treatment?.status === 'IN_PROGRESS';
-    const isCompleted = treatment?.status === 'COMPLETED';
-    const isCancelled = treatment?.status === 'CANCELLED';
-    const isFinished = isCompleted || isCancelled;
-
-    const sessionsDisabled = isPlanned || isFinished;
-    const sessionsDisabledReason = isPlanned
-        ? 'Iniciá el tratamiento para registrar sesiones'
-        : isFinished
-            ? `El tratamiento está ${isCompleted ? 'completado' : 'cancelado'}, no se pueden registrar más sesiones`
-            : undefined;
-
-    const appointmentsDisabled = isFinished;
-    const appointmentsDisabledReason = isFinished
-        ? `El tratamiento está ${isCompleted ? 'completado' : 'cancelado'}, no se pueden agendar más citas`
-        : undefined;
-
-    const imagesDisabled = isCancelled;
-    const imagesDisabledReason = isCancelled
-        ? 'El tratamiento fue cancelado, no se pueden agregar más imágenes'
-        : undefined;
-
-    // Cálculo de saldo pendiente para el botón de pagos
-    const finalAmountValue = toNumber(paymentStatus?.finalAmount || treatment?.totalCost || 0);
-    const amountPaidValue = toNumber(paymentStatus?.amountPaid || 0);
-    const remainingBalanceValue = toNumber(paymentStatus?.remainingBalance || 0);
-    const paymentStatusValue = (paymentStatus?.paymentStatus as string) || 'UNPAID';
-    const hasPendingBalance = remainingBalanceValue > 0.001;
-    const paymentsDisabled = !hasPendingBalance;
-    const paymentsDisabledReason = !hasPendingBalance
-        ? 'El tratamiento ya está completamente pagado'
-        : undefined;
-
-    if (isInitialLoading || patientLoading) {
+    if (isLoading) {
         return (
             <div className="space-y-3 md:space-y-6">
                 <Skeleton className="h-10 w-32" />
@@ -540,34 +78,8 @@ export function TreatmentSessionsPage() {
 
     return (
         <div className="space-y-3 md:space-y-6">
-
-            {/* Header unificado */}
+            {/* HEADER Y BANNERS (Igual que antes) */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 px-3 md:px-6 py-3 md:py-4 border-b border-gray-100">
-                    <div className="flex items-center gap-3 min-w-0">
-                        <img
-                            src={dentplusImg}
-                            alt="Tratamiento"
-                            className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover shrink-0"
-                        />
-                        <div className="min-w-0">
-                            <h1 className="text-lg md:text-2xl font-bold text-gray-900">
-                                Tratamiento
-                            </h1>
-                            <p className="text-xs md:text-sm text-gray-500 mt-0.5 hidden sm:block">
-                                Registro completo del tratamiento y sesiones
-                            </p>
-                        </div>
-                    </div>
-                    <Button
-                        variant="outline"
-                        onClick={() => navigate('/treatments')}
-                        className="shrink-0 w-full sm:w-auto"
-                    >
-                        Volver a Tratamientos
-                    </Button>
-                </div>
-
                 <div className="p-3 md:p-6">
                     <div className="flex flex-col md:flex-row gap-3 md:gap-6">
                         <div
@@ -616,29 +128,15 @@ export function TreatmentSessionsPage() {
                                         <span className="truncate">{treatment.name}</span>
                                     </p>
                                 </div>
-
-                                {(isPlanned || isInProgress) && (
-                                    <div className="flex gap-2 flex-wrap justify-center md:justify-end shrink-0">
-                                        {isPlanned && (
-                                            <Button
-                                                onClick={() => setShowStartDialog(true)}
-                                                className="gap-2 bg-amber-600 hover:bg-amber-700 w-full sm:w-auto"
-                                            >
-                                                <PlayCircle className="h-4 w-4" />
-                                                Iniciar Tratamiento
-                                            </Button>
-                                        )}
-                                        {isInProgress && (
-                                            <Button
-                                                onClick={() => setShowCompleteDialog(true)}
-                                                className="gap-2 bg-green-600 hover:bg-green-700 w-full sm:w-auto"
-                                            >
-                                                <CheckCircle2 className="h-4 w-4" />
-                                                Completar Tratamiento
-                                            </Button>
-                                        )}
-                                    </div>
-                                )}
+                                <div className="flex justify-center md:justify-end shrink-0">
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => navigate('/treatments')}
+                                        className="w-full sm:w-auto"
+                                    >
+                                        Volver a Tratamientos
+                                    </Button>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mt-3 md:mt-5">
@@ -670,10 +168,9 @@ export function TreatmentSessionsPage() {
                 </div>
             </div>
 
-            {/* Banner no iniciado */}
             {isPlanned && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 md:p-4 flex flex-col sm:flex-row items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 md:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 sm:mt-0 shrink-0" />
                     <div className="flex-1">
                         <p className="text-sm font-medium text-amber-800">
                             Este tratamiento aún no ha sido iniciado
@@ -685,15 +182,36 @@ export function TreatmentSessionsPage() {
                     <Button
                         onClick={() => setShowStartDialog(true)}
                         size="sm"
-                        className="gap-2 bg-amber-600 hover:bg-amber-700 shrink-0 w-full sm:w-auto"
+                        className="gap-2 bg-amber-600 hover:bg-amber-700 shrink-0 w-full sm:w-auto rounded-lg"
                     >
                         <PlayCircle className="h-4 w-4" />
-                        Iniciar ahora
+                        Iniciar Tratamiento
                     </Button>
                 </div>
             )}
 
-            {/* Banner finalizado */}
+            {isInProgress && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 md:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                    <Clock className="h-5 w-5 text-blue-600 mt-0.5 sm:mt-0 shrink-0" />
+                    <div className="flex-1">
+                        <p className="text-sm font-medium text-blue-800">
+                            El tratamiento está en curso
+                        </p>
+                        <p className="text-sm text-blue-700 mt-0.5">
+                            Podés continuar registrando sesiones y agendando citas. Cuando hayas terminado todo el plan, marcalo como completado.
+                        </p>
+                    </div>
+                    <Button
+                        onClick={() => setShowCompleteDialog(true)}
+                        size="sm"
+                        className="gap-2 bg-green-600 hover:bg-green-700 shrink-0 w-full sm:w-auto text-white rounded-lg"
+                    >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Completar Tratamiento
+                    </Button>
+                </div>
+            )}
+
             {isFinished && (
                 <div className={`rounded-xl p-3 md:p-4 flex items-start gap-3 border ${isCompleted ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                     <Lock className={`h-5 w-5 mt-0.5 shrink-0 ${isCompleted ? 'text-green-600' : 'text-red-600'}`} />
@@ -710,7 +228,6 @@ export function TreatmentSessionsPage() {
                 </div>
             )}
 
-            {/* TABS */}
             <div className="w-full">
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col">
                     <TabsList className="w-full max-w-2xl mx-auto grid grid-cols-4 h-auto p-1 gap-1 bg-gray-100/80 rounded-xl">
@@ -787,302 +304,65 @@ export function TreatmentSessionsPage() {
                         </TabsTrigger>
                     </TabsList>
 
-                    {/* SESIONES */}
                     <TabsContent value="sessions" className="mt-4 md:mt-6 w-full">
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-                            <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 px-3 md:px-6 py-2.5 md:py-4 rounded-t-2xl">
-                                <div className="flex flex-col gap-2.5 md:gap-3">
-                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3">
-                                        <div className="min-w-0">
-                                            <h2 className="text-base md:text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                                <ListChecks className="h-5 w-5 text-primary-600 shrink-0" />
-                                                Sesiones realizadas
-                                            </h2>
-                                            <p className="text-xs md:text-sm text-gray-500 mt-0.5">
-                                                {filteredSessions.length}{' '}
-                                                {filteredSessions.length === 1 ? 'sesión' : 'sesiones'}
-                                                {sessionSearchTerm && ` · filtradas de ${sessions.length}`}
-                                            </p>
-                                        </div>
-                                        <div className="flex flex-col items-stretch sm:items-end gap-1.5">
-                                            <Button
-                                                onClick={() => setShowSessionForm(true)}
-                                                disabled={sessionsDisabled}
-                                                size="sm"
-                                                className="gap-2 rounded-lg w-full sm:w-auto hidden sm:flex"
-                                                title={sessionsDisabledReason}
-                                            >
-                                                <Plus className="h-4 w-4" />
-                                                Nueva Sesión
-                                            </Button>
-                                            {sessionsDisabledReason && (
-                                                <span className="text-xs text-gray-500 flex items-center gap-1 sm:justify-end">
-                                                    <Lock className="h-3 w-3 shrink-0" />
-                                                    {sessionsDisabledReason}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {sessions.length > 0 && (
-                                        <SearchBar
-                                            onSearch={setSessionSearchTerm}
-                                            placeholder="Buscar por descripción, notas o #..."
-                                            delay={400}
-                                        />
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="p-3 md:p-6 rounded-b-2xl">
-                                <SessionTable
-                                    data={paginatedSessions}
-                                    isLoading={sessionsLoading}
-                                    treatmentId={treatment.id}
-                                    onComplete={handleCompleteSession}
-                                    onNoShow={handleNoShowSession}
-                                    onSessionUpdated={reloadSessions}
-                                    actionsDisabled={isFinished}
-                                    actionsDisabledReason={
-                                        isFinished
-                                            ? `El tratamiento está ${isCompleted ? 'completado' : 'cancelado'}`
-                                            : undefined
-                                    }
-                                    pagination={{
-                                        currentPage: sessionsCurrentPage,
-                                        totalPages: sessionsTotalPages,
-                                        totalItems: filteredSessions.length,
-                                        itemsPerPage: sessionsItemsPerPage,
-                                        onPageChange: setSessionsCurrentPage,
-                                    }}
-                                />
-                            </div>
-                        </div>
+                        <TreatmentSessionsTab
+                            treatment={treatment}
+                            sessions={sessions}
+                            isLoading={sessionsLoading}
+                            onRefresh={reloadSessions}
+                            onOpenCreateSession={() => setShowSessionForm(true)}
+                            onCompleteSession={handleCompleteSession}
+                            onNoShowSession={handleNoShowSession}
+                            isFinished={isFinished}
+                            isCompleted={isCompleted}
+                        />
                     </TabsContent>
 
-                    {/* CITAS */}
                     <TabsContent value="appointments" className="mt-4 md:mt-6 w-full">
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-                            <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 px-3 md:px-6 py-2.5 md:py-4 rounded-t-2xl">
-                                <div className="flex flex-col gap-2.5 md:gap-3">
-                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3">
-                                        <div className="min-w-0">
-                                            <h2 className="text-base md:text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                                <CalendarPlus className="h-5 w-5 text-primary-600 shrink-0" />
-                                                Citas del Tratamiento
-                                            </h2>
-                                            <p className="text-xs md:text-sm text-gray-500 mt-0.5">
-                                                {filteredAppointments.length}{' '}
-                                                {filteredAppointments.length === 1 ? 'cita' : 'citas'}
-                                                {appointmentsSearchTerm && ` · filtradas de ${appointments.length}`}
-                                            </p>
-                                        </div>
-                                        <div className="flex flex-col items-stretch sm:items-end gap-1.5">
-                                            <Button
-                                                onClick={handleOpenCreateAppointment}
-                                                disabled={appointmentsDisabled}
-                                                size="sm"
-                                                className="gap-2 rounded-lg w-full sm:w-auto hidden sm:flex"
-                                                title={appointmentsDisabledReason}
-                                            >
-                                                <Plus className="h-4 w-4" />
-                                                Agendar Cita
-                                            </Button>
-                                            {appointmentsDisabledReason && (
-                                                <span className="text-xs text-gray-500 flex items-center gap-1 sm:justify-end">
-                                                    <Lock className="h-3 w-3 shrink-0" />
-                                                    {appointmentsDisabledReason}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {appointments.length > 0 && (
-                                        <SearchBar
-                                            onSearch={setAppointmentsSearchTerm}
-                                            placeholder="Buscar por doctor, fecha o estado..."
-                                            delay={400}
-                                        />
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="p-3 md:p-6 rounded-b-2xl">
-                                <TreatmentAppointmentsList
-                                    appointments={sortedPaginatedAppointments}
-                                    isLoading={appointmentsLoading}
-                                    onViewAppointment={handleViewAppointment}
-                                    onEdit={handleEditAppointment}
-                                    onComplete={handleCompleteAppointment}
-                                    onNoShow={handleNoShowAppointment}
-                                    onCancel={handleCancelAppointment}
-                                    actionsDisabled={appointmentsDisabled}
-                                    actionsDisabledReason={appointmentsDisabledReason}
-                                    pagination={{
-                                        currentPage: appointmentsCurrentPage,
-                                        totalPages: appointmentsTotalPages,
-                                        totalItems: filteredAppointments.length,
-                                        itemsPerPage: appointmentsItemsPerPage,
-                                        onPageChange: setAppointmentsCurrentPage,
-                                    }}
-                                />
-                            </div>
-                        </div>
+                        <TreatmentAppointmentsTab
+                            treatment={treatment}
+                            appointments={appointments}
+                            isLoading={appointmentsLoading}
+                            onRefresh={reloadAppointments}
+                            onOpenCreateAppointment={handleOpenCreateAppointment}
+                            onEditAppointment={handleEditAppointment}
+                            onViewAppointment={handleViewAppointment}
+                            onCompleteAppointment={handleCompleteAppointment}
+                            onNoShowAppointment={handleNoShowAppointment}
+                            onCancelAppointment={handleCancelAppointment}
+                            isFinished={isFinished}
+                            isCompleted={isCompleted}
+                        />
                     </TabsContent>
 
-                    {/* IMÁGENES */}
                     <TabsContent value="images" className="mt-4 md:mt-6 w-full">
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-                            {/* Sticky header: título + botón */}
-                            <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 px-3 md:px-6 py-2.5 md:py-4 rounded-t-2xl">
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3">
-                                    <div className="min-w-0">
-                                        <h2 className="text-base md:text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                            <Image className="h-5 w-5 text-primary-600 shrink-0" />
-                                            Galería de Imágenes
-                                        </h2>
-                                        <p className="text-xs md:text-sm text-gray-500 mt-0.5">
-                                            {images?.length || 0}{' '}
-                                            {(images?.length || 0) === 1 ? 'imagen registrada' : 'imágenes registradas'}
-                                            {treatment?.name && (
-                                                <span className="hidden lg:inline"> · {treatment.name}</span>
-                                            )}
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-col items-stretch sm:items-end gap-1.5">
-                                        <Button
-                                            onClick={() => setShowUploadModal(true)}
-                                            disabled={imagesDisabled}
-                                            size="sm"
-                                            className="gap-2 rounded-lg w-full sm:w-auto hidden sm:flex"
-                                            title={imagesDisabledReason}
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                            Nueva Imagen
-                                        </Button>
-                                        {imagesDisabledReason && (
-                                            <span className="text-xs text-gray-500 flex items-center gap-1 sm:justify-end">
-                                                <Lock className="h-3 w-3 shrink-0" />
-                                                {imagesDisabledReason}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Contenido */}
-                            <div className="p-3 md:p-6 rounded-b-2xl">
-                                {treatment && (
-                                    <ImageCarousel
-                                        images={images || []}
-                                        isLoading={imagesLoading}
-                                        treatmentName={treatment.name}
-                                        onUpload={() => setShowUploadModal(true)}
-                                        onDelete={(id) => deleteMedia.mutateAsync(id)}
-                                        disabled={imagesDisabled}
-                                        disabledReason={imagesDisabledReason}
-                                        hideHeader
-                                    />
-                                )}
-                            </div>
-                        </div>
+                        <TreatmentImagesTab
+                            treatment={treatment}
+                            images={images || []}
+                            isLoading={imagesLoading}
+                            onOpenUploadModal={() => setShowUploadModal(true)}
+                            onDeleteImage={(id) => deleteMedia.mutateAsync(id)}
+                            imagesDisabled={imagesDisabled}
+                            imagesDisabledReason={imagesDisabledReason}
+                        />
                     </TabsContent>
 
-                    {/* PAGOS */}
                     <TabsContent value="payments" className="mt-4 md:mt-6 w-full">
-                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-                            {/* Sticky header: título + botón (consistente con sessions/citas/imágenes) */}
-                            <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-100 px-3 md:px-6 py-2.5 md:py-4 rounded-t-2xl">
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-3">
-                                    <div className="min-w-0">
-                                        <h2 className="text-base md:text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                            <CreditCard className="h-5 w-5 text-primary-600 shrink-0" />
-                                            Pagos del Tratamiento
-                                        </h2>
-                                        <p className="text-xs md:text-sm text-gray-500 mt-0.5">
-                                            {paymentStatus?.payments?.length || 0}{' '}
-                                            {(paymentStatus?.payments?.length || 0) === 1 ? 'pago registrado' : 'pagos registrados'}
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-col items-stretch sm:items-end gap-1.5">
-                                        <Button
-                                            onClick={() => setShowPaymentModal(true)}
-                                            disabled={paymentsDisabled}
-                                            size="sm"
-                                            className="gap-2 rounded-lg w-full sm:w-auto hidden sm:flex"
-                                            title={paymentsDisabledReason}
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                            Agregar Pago
-                                        </Button>
-                                        {paymentsDisabledReason && (
-                                            <span className="text-xs text-gray-500 flex items-center gap-1 sm:justify-end">
-                                                <CheckCircle2 className="h-3 w-3 shrink-0" />
-                                                {paymentsDisabledReason}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Contenido */}
-                            <div className="p-3 md:p-6 space-y-4 md:space-y-6 rounded-b-2xl">
-                                {paymentStatus && (
-                                    <Card>
-                                        <CardHeader className="p-4 md:p-6">
-                                            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                                                <CreditCard className="h-5 w-5 text-primary-600 shrink-0" />
-                                                Resumen de Pagos
-                                            </CardTitle>
-                                            <CardDescription>
-                                                {paymentStatus.payments?.length || 0} pagos registrados
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
-                                            <PaymentSummary
-                                                paymentStatus={paymentStatus}
-                                                treatmentId={treatment.id}
-                                                isCompleted={isCompleted}
-                                                canEditCost={!isCancelled}
-                                                onCostUpdated={reloadPayments}
-                                            />
-                                        </CardContent>
-                                    </Card>
-                                )}
-
-                                {paymentStatus && (
-                                    <Card>
-                                        <CardHeader className="p-4 md:p-6">
-                                            <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                                                Historial de Pagos
-                                            </CardTitle>
-                                            <CardDescription>
-                                                {paymentStatus.payments?.length || 0} pagos registrados
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
-                                            <PaymentHistory
-                                                payments={paymentStatus?.payments || []}
-                                                amountPaid={amountPaidValue}
-                                                remainingBalance={remainingBalanceValue}
-                                                paymentStatus={paymentStatusValue}
-                                                isLoading={paymentsLoading}
-                                                isCancelled={isCancelled}
-                                                onViewPayment={handleViewPayment}
-                                                onVoidPayment={handleVoidPaymentClick}
-                                                canEdit={false}
-                                                canVoid={true}
-                                            />
-                                        </CardContent>
-                                    </Card>
-                                )}
-                            </div>
-                        </div>
+                        <TreatmentPaymentsTab
+                            treatment={treatment}
+                            paymentStatus={paymentStatus}
+                            isLoading={paymentsLoading}
+                            isCompleted={isCompleted}
+                            isCancelled={isCancelled}
+                            onOpenPaymentModal={() => setShowPaymentModal(true)}
+                            onViewPayment={handleViewPayment}
+                            onVoidPayment={handleVoidPaymentClick}
+                            onCostUpdated={reloadPayments}
+                        />
                     </TabsContent>
                 </Tabs>
             </div>
 
-            {/* Modales */}
             <SessionForm
                 open={showSessionForm}
                 onOpenChange={setShowSessionForm}
@@ -1091,19 +371,15 @@ export function TreatmentSessionsPage() {
                 onSuccess={handleSessionAdded}
             />
 
-            {treatment && (
-                <UploadImageModal
-                    open={showUploadModal}
-                    onOpenChange={setShowUploadModal}
-                    treatmentId={treatment.id}
-                    sessions={sessions.map(s => ({ id: s.id, sessionNumber: s.sessionNumber }))}
-                    onSuccess={() => {
-                        setShowUploadModal(false);
-                    }}
-                />
-            )}
+            <UploadImageModal
+                open={showUploadModal}
+                onOpenChange={setShowUploadModal}
+                treatmentId={treatment.id}
+                sessions={sessions.map(s => ({ id: s.id, sessionNumber: s.sessionNumber }))}
+                onSuccess={() => setShowUploadModal(false)}
+            />
 
-            {treatment && patient && (
+            {patient && (
                 <AppointmentFromTreatment
                     open={showAppointmentForm}
                     onOpenChange={handleAppointmentFormClose}
@@ -1153,23 +429,19 @@ export function TreatmentSessionsPage() {
                 isLoading={isVoiding}
             />
 
-            {/* Modal de registro de pago */}
-            {treatment && (
-                <RegisterPaymentModal
-                    open={showPaymentModal}
-                    onOpenChange={setShowPaymentModal}
-                    treatmentId={treatment.id}
-                    totalCost={finalAmountValue}
-                    totalPaid={amountPaidValue}
-                    remainingBalance={remainingBalanceValue}
-                    onSuccess={() => {
-                        setShowPaymentModal(false);
-                        handlePaymentRegistered();
-                    }}
-                />
-            )}
+            <RegisterPaymentModal
+                open={showPaymentModal}
+                onOpenChange={setShowPaymentModal}
+                treatmentId={treatment.id}
+                totalCost={finalAmountValue}
+                totalPaid={amountPaidValue}
+                remainingBalance={remainingBalanceValue}
+                onSuccess={() => {
+                    setShowPaymentModal(false);
+                    handlePaymentRegistered();
+                }}
+            />
 
-            {/* Detalle de cita */}
             <AppointmentDetailDialog
                 open={showAppointmentDetail}
                 onOpenChange={(open) => {
@@ -1179,107 +451,17 @@ export function TreatmentSessionsPage() {
                 appointment={selectedAppointment}
             />
 
-            {/* FAB móvil: cambia según el tab activo */}
-            {activeTab === 'sessions' && !sessionsDisabled && (
-                <button
-                    type="button"
-                    onClick={() => setShowSessionForm(true)}
-                    aria-label="Nueva Sesión"
-                    className={cn(
-                        "fixed right-5 z-50 sm:hidden",
-                        "h-14 w-14 rounded-full",
-                        "bg-blue-600 hover:bg-blue-700 text-white",
-                        "flex items-center justify-center",
-                        "shadow-xl shadow-blue-600/30",
-                        "hover:shadow-2xl hover:shadow-blue-600/40",
-                        "active:scale-95 transition-all duration-300 ease-out",
-                        scrollDirection === 'down'
-                            ? "translate-y-24 opacity-0 pointer-events-none"
-                            : "translate-y-0 opacity-100"
-                    )}
-                    style={{
-                        bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
-                    }}
-                >
-                    <Plus className="h-6 w-6" strokeWidth={2.5} />
-                </button>
-            )}
-
-            {activeTab === 'appointments' && !appointmentsDisabled && (
-                <button
-                    type="button"
-                    onClick={handleOpenCreateAppointment}
-                    aria-label="Agendar Cita"
-                    className={cn(
-                        "fixed right-5 z-50 sm:hidden",
-                        "h-14 w-14 rounded-full",
-                        "bg-blue-600 hover:bg-blue-700 text-white",
-                        "flex items-center justify-center",
-                        "shadow-xl shadow-blue-600/30",
-                        "hover:shadow-2xl hover:shadow-blue-600/40",
-                        "active:scale-95 transition-all duration-300 ease-out",
-                        scrollDirection === 'down'
-                            ? "translate-y-24 opacity-0 pointer-events-none"
-                            : "translate-y-0 opacity-100"
-                    )}
-                    style={{
-                        bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
-                    }}
-                >
-                    <Plus className="h-6 w-6" strokeWidth={2.5} />
-                </button>
-            )}
-
-            {activeTab === 'images' && !imagesDisabled && (
-                <button
-                    type="button"
-                    onClick={() => setShowUploadModal(true)}
-                    aria-label="Nueva Imagen"
-                    className={cn(
-                        "fixed right-5 z-50 sm:hidden",
-                        "h-14 w-14 rounded-full",
-                        "bg-blue-600 hover:bg-blue-700 text-white",
-                        "flex items-center justify-center",
-                        "shadow-xl shadow-blue-600/30",
-                        "hover:shadow-2xl hover:shadow-blue-600/40",
-                        "active:scale-95 transition-all duration-300 ease-out",
-                        scrollDirection === 'down'
-                            ? "translate-y-24 opacity-0 pointer-events-none"
-                            : "translate-y-0 opacity-100"
-                    )}
-                    style={{
-                        bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
-                    }}
-                >
-                    <Plus className="h-6 w-6" strokeWidth={2.5} />
-                </button>
-            )}
-
-            {/* FAB móvil para Pagos */}
-            {activeTab === 'payments' && !paymentsDisabled && (
-                <button
-                    type="button"
-                    onClick={() => setShowPaymentModal(true)}
-                    aria-label="Agregar Pago"
-                    className={cn(
-                        "fixed right-5 z-50 sm:hidden",
-                        "h-14 w-14 rounded-full",
-                        "bg-blue-600 hover:bg-blue-700 text-white",
-                        "flex items-center justify-center",
-                        "shadow-xl shadow-blue-600/30",
-                        "hover:shadow-2xl hover:shadow-blue-600/40",
-                        "active:scale-95 transition-all duration-300 ease-out",
-                        scrollDirection === 'down'
-                            ? "translate-y-24 opacity-0 pointer-events-none"
-                            : "translate-y-0 opacity-100"
-                    )}
-                    style={{
-                        bottom: 'calc(1.25rem + env(safe-area-inset-bottom))',
-                    }}
-                >
-                    <Plus className="h-6 w-6" strokeWidth={2.5} />
-                </button>
-            )}
+            <TreatmentMobileFAB
+                activeTab={activeTab}
+                sessionsDisabled={sessionsDisabled}
+                appointmentsDisabled={appointmentsDisabled}
+                imagesDisabled={imagesDisabled}
+                paymentsDisabled={paymentsDisabled}
+                onNewSession={() => setShowSessionForm(true)}
+                onNewAppointment={handleOpenCreateAppointment}
+                onNewImage={() => setShowUploadModal(true)}
+                onNewPayment={() => setShowPaymentModal(true)}
+            />
         </div>
     );
 }

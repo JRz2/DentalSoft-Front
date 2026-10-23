@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
     CalendarDays, PlusCircle, User, ChevronRight,
-    Plus,
+    Plus, AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,7 +11,7 @@ import { format, startOfDay, isBefore, isToday, isTomorrow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { AppointmentDetailDialog } from '@/components/appointments/AppointmentDetailDialog';
-import { AppointmentFromPatient } from '@/components/appointments/AppointmentFromPatient';
+import { AppointmentFromPatient } from '@/components/appointments/AppointmentFormModal';
 import { usePatient } from '@/hooks/usePatients';
 import { useNavigate } from 'react-router-dom';
 
@@ -49,8 +49,8 @@ const STATUS_STYLES: Record<
 };
 
 const OVERDUE_STYLE = {
-    bg: 'bg-red-50', border: 'border-l-4 border-red-500', text: 'text-red-700',
-    badgeBg: 'bg-red-100', badgeText: 'text-red-700', label: 'Vencida',
+    bg: 'bg-amber-50/60', border: 'border-l-4 border-amber-500', text: 'text-amber-700',
+    badgeBg: 'bg-amber-100', badgeText: 'text-amber-800', label: 'Vencida',
 };
 
 const DEFAULT_STYLE = {
@@ -284,6 +284,7 @@ export function PatientAppointmentsCard({ patientId, className }: PatientAppoint
                                             {items.map((apt) => {
                                                 const aptDate = new Date(apt.appointmentDate);
                                                 const style = resolveStyle(apt, today);
+                                                const isOverdue = style.label === 'Vencida';
 
                                                 return (
                                                     <button
@@ -311,6 +312,14 @@ export function PatientAppointmentsCard({ patientId, className }: PatientAppoint
                                                             <p className="text-xs sm:text-sm font-medium text-gray-900 truncate capitalize">
                                                                 {format(aptDate, "EEEE d 'de' MMMM", { locale: es })}
                                                             </p>
+
+                                                            {isOverdue && (
+                                                                <div className="flex items-center gap-1 mt-1 text-[10px] sm:text-xs font-medium text-amber-700 bg-amber-100/60 w-fit px-1.5 py-0.5 rounded-md">
+                                                                    <AlertCircle className="h-3 w-3 shrink-0" />
+                                                                    <span>La hora de la cita ya pasó</span>
+                                                                </div>
+                                                            )}
+
                                                             <div className="flex items-center gap-2 mt-0.5 text-[10px] sm:text-xs text-gray-600 flex-wrap">
                                                                 {apt.doctor?.name && (
                                                                     <>

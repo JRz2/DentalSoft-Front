@@ -3,7 +3,7 @@ import { useState } from 'react';
 import {
     CalendarClock, CheckCircle2, PlayCircle, CheckCheck, XCircle, UserX,
     Eye, CalendarDays, User, Clock, Lock, Ban, Circle, ChevronRight, ChevronLeft,
-    Pencil
+    Pencil, AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -61,7 +61,6 @@ const statusIcons: Record<AppointmentStatus, any> = {
     NO_SHOW: UserX,
 };
 
-/** Devuelve "Hoy", "Mañana", "Ayer" o null si no aplica */
 const getRelativeDateLabel = (date: Date): string | null => {
     if (isToday(date)) return 'Hoy';
     if (isTomorrow(date)) return 'Mañana';
@@ -69,7 +68,6 @@ const getRelativeDateLabel = (date: Date): string | null => {
     return null;
 };
 
-/** Config visual de cada etiqueta relativa — pill + ícono + jerarquía */
 const relativeDateConfig: Record<string, { className: string; Icon: any }> = {
     'Hoy': {
         className: 'bg-blue-600 text-white shadow-sm ring-1 ring-primary-700/20',
@@ -85,7 +83,6 @@ const relativeDateConfig: Record<string, { className: string; Icon: any }> = {
     },
 };
 
-/** Pill reutilizable para Hoy / Mañana / Ayer */
 function RelativeDateBadge({ label }: { label: string }) {
     const cfg = relativeDateConfig[label];
     if (!cfg) return null;
@@ -109,7 +106,6 @@ function RelativeDateBadge({ label }: { label: string }) {
     );
 }
 
-/** Determina si la cita está vencida (pasada y sin completar/cancelar/no-show) */
 const isOverdue = (appointment: Appointment): boolean => {
     const date = new Date(appointment.appointmentDate);
     return (
@@ -120,7 +116,6 @@ const isOverdue = (appointment: Appointment): boolean => {
     );
 };
 
-/** Reglas de qué acciones están disponibles según el estado */
 const canComplete = (status: AppointmentStatus): boolean =>
     ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'].includes(status);
 
@@ -133,12 +128,11 @@ const canCancel = (status: AppointmentStatus): boolean =>
 const canEdit = (status: AppointmentStatus): boolean =>
     ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'].includes(status);
 
-/** Formatea la fecha de la cita para los diálogos */
 const formatApptDate = (appointment: Appointment): string =>
     format(new Date(appointment.appointmentDate), "dd/MM/yyyy 'a las' HH:mm", { locale: es });
 
-/** Clases de fondo/borde del card según el estado final (mobile) */
-const getCardStateClasses = (status: AppointmentStatus): string => {
+const getCardStateClasses = (status: AppointmentStatus, overdue: boolean): string => {
+    if (overdue) return 'border-amber-200 bg-amber-50/40';
     switch (status) {
         case 'COMPLETED':
             return 'border-green-200 bg-green-50/40';
@@ -151,7 +145,6 @@ const getCardStateClasses = (status: AppointmentStatus): string => {
     }
 };
 
-/** Clases de color de texto para las celdas (desktop y mobile) */
 const getCellStateClasses = (status: AppointmentStatus): string => {
     switch (status) {
         case 'COMPLETED':
@@ -165,10 +158,9 @@ const getCellStateClasses = (status: AppointmentStatus): string => {
     }
 };
 
-/** Clases para el wrap del ícono de fecha en el card mobile */
 const getIconWrapClasses = (appointment: Appointment): string => {
     const { status } = appointment;
-    if (isOverdue(appointment)) return 'bg-red-100 text-red-700';
+    if (isOverdue(appointment)) return 'bg-amber-100 text-amber-700';
     switch (status) {
         case 'COMPLETED':
             return 'bg-green-100 text-green-700';
@@ -181,9 +173,6 @@ const getIconWrapClasses = (appointment: Appointment): string => {
     }
 };
 
-/* ============================================================
-   MOBILE / TABLET CARD
-   ============================================================ */
 interface AppointmentCardProps {
     appointment: Appointment;
     onView?: (appointment: Appointment) => void;
@@ -219,8 +208,7 @@ function AppointmentCard({
             onClick={() => onView?.(appointment)}
             className={cn(
                 'bg-white rounded-xl border border-gray-100 p-4 transition-all hover:shadow-md active:scale-[0.99] cursor-pointer h-full flex flex-col',
-                overdue && 'border-red-200 bg-red-50/30',
-                getCardStateClasses(appointment.status)
+                getCardStateClasses(appointment.status, overdue)
             )}
         >
             {/* Header: fecha + estado */}
@@ -256,13 +244,14 @@ function AppointmentCard({
 
             {/* Hora + duración */}
             <div className="mt-3 flex items-center gap-2 text-sm text-gray-700">
-                <Clock className="h-4 w-4 text-gray-400 shrink-0" />
-                <span className={cn('font-medium', getCellStateClasses(appointment.status))}>
+                <Clock className={cn("h-4 w-4 shrink-0", overdue ? "text-amber-500" : "text-gray-400")} />
+                <span className={cn('font-medium', overdue ? 'text-amber-700' : getCellStateClasses(appointment.status))}>
                     {format(date, 'HH:mm')}
                 </span>
                 <span className="text-xs text-gray-400">· {appointment.duration} min</span>
+                
                 {overdue && (
-                    <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-[10px] ml-auto">
+                    <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-[10px] ml-auto border border-amber-200">
                         Vencida
                     </Badge>
                 )}
@@ -279,19 +268,22 @@ function AppointmentCard({
                 </span>
             </div>
 
+            {overdue && (
+                <div className="flex items-start gap-1.5 mt-2 text-[11px] font-medium text-amber-700 bg-amber-100/60 p-2 rounded-lg border border-amber-200/50">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>La hora de la cita ya pasó. Por favor, actualiza el estado a Completada o No Asistió.</span>
+                </div>
+            )}
+
             {/* Acciones */}
             <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-100">
                 {onView && (
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onView(appointment);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); onView(appointment); }}
                         className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-9 w-9"
                         title="Ver detalle"
-                        aria-label="Ver detalle"
                     >
                         <Eye className="h-4 w-4" />
                     </Button>
@@ -301,13 +293,9 @@ function AppointmentCard({
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(appointment);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); onEdit(appointment); }}
                         className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 h-9 w-9"
                         title="Editar cita"
-                        aria-label="Editar cita"
                     >
                         <Pencil className="h-4 w-4" />
                     </Button>
@@ -317,13 +305,9 @@ function AppointmentCard({
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onComplete(appointment);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); onComplete(appointment); }}
                         className="text-green-600 hover:text-green-800 hover:bg-green-50 h-9 w-9"
                         title="Completar cita"
-                        aria-label="Completar cita"
                     >
                         <CheckCircle2 className="h-4 w-4" />
                     </Button>
@@ -333,13 +317,9 @@ function AppointmentCard({
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onNoShow(appointment);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); onNoShow(appointment); }}
                         className="text-orange-600 hover:text-orange-800 hover:bg-orange-50 h-9 w-9"
                         title="Marcar como no asistió"
-                        aria-label="Marcar como no asistió"
                     >
                         <UserX className="h-4 w-4" />
                     </Button>
@@ -349,13 +329,9 @@ function AppointmentCard({
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onCancel(appointment);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); onCancel(appointment); }}
                         className="text-red-600 hover:text-red-800 hover:bg-red-50 h-9 w-9"
                         title="Cancelar cita"
-                        aria-label="Cancelar cita"
                     >
                         <XCircle className="h-4 w-4" />
                     </Button>
@@ -365,9 +341,6 @@ function AppointmentCard({
     );
 }
 
-/* ============================================================
-   MAIN COMPONENT
-   ============================================================ */
 export function TreatmentAppointmentsList({
     appointments,
     isLoading,
@@ -421,7 +394,6 @@ export function TreatmentAppointmentsList({
         </div>
     );
 
-    /* COLUMNAS PARA DESKTOP */
     const columns: ColumnDef<Appointment>[] = [
         {
             accessorKey: 'appointmentDate',
@@ -441,7 +413,7 @@ export function TreatmentAppointmentsList({
                         <span
                             className={cn(
                                 'font-medium',
-                                overdue && 'text-red-600',
+                                overdue && 'text-amber-600',
                                 !overdue && getCellStateClasses(row.original.status)
                             )}
                         >
@@ -454,23 +426,30 @@ export function TreatmentAppointmentsList({
         {
             accessorKey: 'duration',
             header: 'Hora',
-            size: 100,
+            size: 110,
             cell: ({ row }) => {
                 const date = new Date(row.original.appointmentDate);
                 const overdue = isOverdue(row.original);
+                
                 return (
-                    <div>
-                        <span
-                            className={cn(
-                                'font-medium',
-                                overdue && 'text-red-600',
-                                !overdue && getCellStateClasses(row.original.status)
-                            )}
-                        >
-                            {format(date, 'HH:mm')}
-                        </span>
-                        <span className="text-xs text-gray-400 ml-1">
-                            ({row.original.duration} min)
+                    <div className="flex flex-col">
+                        <div className={cn(
+                            "flex items-center gap-1.5 px-2 py-1 rounded-md w-fit",
+                            overdue ? "bg-amber-50 text-amber-700 border border-amber-100" : ""
+                        )}>
+                            <span
+                                className={cn(
+                                    'font-semibold',
+                                    overdue && 'text-amber-700',
+                                    !overdue && getCellStateClasses(row.original.status)
+                                )}
+                            >
+                                {format(date, 'HH:mm')}
+                            </span>
+                            {overdue && <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />}
+                        </div>
+                        <span className="text-[11px] text-gray-400 mt-1 pl-1">
+                            {row.original.duration} min
                         </span>
                     </div>
                 );
@@ -499,21 +478,24 @@ export function TreatmentAppointmentsList({
         {
             id: 'state',
             header: 'Estado',
-            size: 140,
+            size: 180,
             cell: ({ row }) => {
                 const status = row.original.status;
                 const StatusIcon = statusIcons[status];
                 const overdue = isOverdue(row.original);
+                
                 return (
-                    <div className="flex items-center gap-2">
-                        <Badge className={cn('whitespace-nowrap', statusColors[status])}>
+                    <div className="flex items-center gap-2 flex-wrap"> 
+                        <Badge className={cn('whitespace-nowrap rounded-md', statusColors[status])}>
                             <StatusIcon className="h-3 w-3 mr-1" />
                             {statusLabels[status]}
                         </Badge>
+                        
                         {overdue && (
-                            <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-[10px]">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100/80 text-amber-800 whitespace-nowrap shadow-sm">
+                                <AlertCircle className="h-2.5 w-2.5" />
                                 Vencida
-                            </Badge>
+                            </span>
                         )}
                     </div>
                 );
@@ -537,13 +519,9 @@ export function TreatmentAppointmentsList({
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onViewAppointment(appointment);
-                                }}
+                                onClick={(e) => { e.stopPropagation(); onViewAppointment(appointment); }}
                                 className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-8 w-8"
                                 title="Ver detalle"
-                                aria-label="Ver detalle"
                             >
                                 <Eye className="h-4 w-4" />
                             </Button>
@@ -553,13 +531,9 @@ export function TreatmentAppointmentsList({
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onEdit(appointment);
-                                }}
+                                onClick={(e) => { e.stopPropagation(); onEdit(appointment); }}
                                 className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 h-8 w-8"
                                 title="Editar cita"
-                                aria-label="Editar cita"
                             >
                                 <Pencil className="h-4 w-4" />
                             </Button>
@@ -569,13 +543,9 @@ export function TreatmentAppointmentsList({
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPendingAction({ type: 'complete', appointment });
-                                }}
+                                onClick={(e) => { e.stopPropagation(); setPendingAction({ type: 'complete', appointment }); }}
                                 className="text-green-600 hover:text-green-800 hover:bg-green-50 h-8 w-8"
                                 title="Completar cita"
-                                aria-label="Completar cita"
                             >
                                 <CheckCircle2 className="h-4 w-4" />
                             </Button>
@@ -585,13 +555,9 @@ export function TreatmentAppointmentsList({
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPendingAction({ type: 'noShow', appointment });
-                                }}
+                                onClick={(e) => { e.stopPropagation(); setPendingAction({ type: 'noShow', appointment }); }}
                                 className="text-orange-600 hover:text-orange-800 hover:bg-orange-50 h-8 w-8"
                                 title="Marcar como no asistió"
-                                aria-label="Marcar como no asistió"
                             >
                                 <UserX className="h-4 w-4" />
                             </Button>
@@ -601,13 +567,9 @@ export function TreatmentAppointmentsList({
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPendingAction({ type: 'cancel', appointment });
-                                }}
+                                onClick={(e) => { e.stopPropagation(); setPendingAction({ type: 'cancel', appointment }); }}
                                 className="text-red-600 hover:text-red-800 hover:bg-red-50 h-8 w-8"
                                 title="Cancelar cita"
-                                aria-label="Cancelar cita"
                             >
                                 <XCircle className="h-4 w-4" />
                             </Button>
@@ -618,7 +580,6 @@ export function TreatmentAppointmentsList({
         },
     ];
 
-    /* LOADING STATE (mobile/tablet) */
     if (isLoading && useCardView) {
         return (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -644,7 +605,6 @@ export function TreatmentAppointmentsList({
         );
     }
 
-    /* EMPTY STATE (mobile/tablet) */
     if (!appointments.length && !isLoading && useCardView) {
         return (
             <>
@@ -658,7 +618,6 @@ export function TreatmentAppointmentsList({
         );
     }
 
-    /* MOBILE / TABLET: cards */
     if (useCardView) {
         return (
             <>
@@ -702,7 +661,6 @@ export function TreatmentAppointmentsList({
                     </div>
                 )}
 
-                {/* ⭐ Componente de confirmación unificado */}
                 <AppointmentStatusConfirmDialog
                     open={!!pendingAction}
                     onOpenChange={(open) => !open && closePendingAction()}
@@ -715,7 +673,6 @@ export function TreatmentAppointmentsList({
         );
     }
 
-    /* DESKTOP: tabla */
     return (
         <>
             {actionsDisabledBanner}
@@ -727,7 +684,6 @@ export function TreatmentAppointmentsList({
                 pagination={pagination}
             />
 
-            {/* Componente de confirmación unificado */}
             <AppointmentStatusConfirmDialog
                 open={!!pendingAction}
                 onOpenChange={(open) => !open && closePendingAction()}

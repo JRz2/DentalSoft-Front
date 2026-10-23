@@ -1,17 +1,6 @@
 import { useState } from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
     Dialog,
     DialogContent,
@@ -20,14 +9,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Appointment, AppointmentStatus } from '@/types/appointment';
-import { StatusBadge } from './StatusBadge';
-import { useUpdateAppointmentStatus, useDeleteAppointment } from '@/hooks/useAppointments';
-import { format } from 'date-fns';
+import { Appointment } from '@/types/appointment';
+import { useDeleteAppointment } from '@/hooks/useAppointments';
+import { format, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { MoreHorizontal, Eye, Edit, Trash2, CalendarCheck, CalendarX, Clock, User, Stethoscope } from 'lucide-react';
+import {
+    Pencil, Trash2, CalendarX, Clock, Stethoscope, AlertCircle
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 
 interface AppointmentListProps {
     appointments: Appointment[];
@@ -38,14 +28,33 @@ interface AppointmentListProps {
     doctorId?: number;
 }
 
-const statusOptions: { value: AppointmentStatus; label: string; icon: string }[] = [
-    { value: 'SCHEDULED', label: 'Agendada', icon: '📅' },
-    { value: 'CONFIRMED', label: 'Confirmada', icon: '✅' },
-    { value: 'IN_PROGRESS', label: 'En curso', icon: '🔄' },
-    { value: 'COMPLETED', label: 'Completada', icon: '✔️' },
-    { value: 'CANCELLED', label: 'Cancelada', icon: '❌' },
-    { value: 'NO_SHOW', label: 'No asistió', icon: '🚫' },
-];
+// Configuración visual por estado
+const STATUS_STYLES: Record<string, { bg: string; border: string; text: string; badgeBg: string; badgeText: string; label: string }> = {
+    SCHEDULED: { bg: 'bg-blue-50/50', border: 'border-l-4 border-blue-500', text: 'text-blue-700', badgeBg: 'bg-blue-100', badgeText: 'text-blue-700', label: 'Agendada' },
+    CONFIRMED: { bg: 'bg-emerald-50/50', border: 'border-l-4 border-emerald-500', text: 'text-emerald-700', badgeBg: 'bg-emerald-100', badgeText: 'text-emerald-700', label: 'Confirmada' },
+    IN_PROGRESS: { bg: 'bg-amber-50/50', border: 'border-l-4 border-amber-500', text: 'text-amber-700', badgeBg: 'bg-amber-100', badgeText: 'text-amber-700', label: 'En curso' },
+    COMPLETED: { bg: 'bg-green-50/50', border: 'border-l-4 border-green-500', text: 'text-green-700', badgeBg: 'bg-green-100', badgeText: 'text-green-700', label: 'Completada' },
+    CANCELLED: { bg: 'bg-red-50/50', border: 'border-l-4 border-red-500', text: 'text-red-700', badgeBg: 'bg-red-100', badgeText: 'text-red-700', label: 'Cancelada' },
+    NO_SHOW: { bg: 'bg-red-50/50', border: 'border-l-4 border-red-500', text: 'text-red-700', badgeBg: 'bg-red-100', badgeText: 'text-red-700', label: 'No asistió' },
+};
+
+// Estilo para citas cuya hora ya pasó y necesitan resolución
+const OVERDUE_STYLE = {
+    bg: 'bg-amber-50/60',
+    border: 'border-l-4 border-amber-500 border-y-amber-100 border-r-amber-100',
+    text: 'text-amber-700',
+    badgeBg: 'bg-amber-100',
+    badgeText: 'text-amber-800',
+    label: 'Vencida'
+};
+
+const DEFAULT_STYLE = { bg: 'bg-gray-50', border: 'border-l-4 border-gray-300', text: 'text-gray-700', badgeBg: 'bg-gray-100', badgeText: 'text-gray-700', label: 'Desconocido' };
+
+const isOverdue = (appointment: Appointment): boolean => {
+    const date = new Date(appointment.appointmentDate);
+    const isTerminal = ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(appointment.status);
+    return isPast(date) && !isTerminal;
+};
 
 export function AppointmentList({
     appointments,
@@ -53,22 +62,10 @@ export function AppointmentList({
     onViewAppointment,
     onEditAppointment,
     onRefresh,
-    doctorId,
 }: AppointmentListProps) {
-    const updateStatus = useUpdateAppointmentStatus();
     const deleteAppointment = useDeleteAppointment();
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-    const [showStatusDialog, setShowStatusDialog] = useState(false);
-
-    const handleStatusChange = async (appointmentId: number, status: AppointmentStatus) => {
-        try {
-            await updateStatus.mutateAsync({ id: appointmentId, status });
-            onRefresh?.();
-        } catch (error) {
-            console.error('Error al cambiar estado:', error);
-        }
-    };
 
     const handleDelete = async () => {
         if (!selectedAppointment) return;
@@ -84,179 +81,171 @@ export function AppointmentList({
 
     if (isLoading) {
         return (
-            <Card>
-                <CardContent className="pt-6">
-                    {[...Array(5)].map((_, i) => (
-                        <div key={i} className="flex items-center gap-4 py-3 border-b border-gray-100 last:border-0">
-                            <Skeleton className="h-4 w-16" />
-                            <Skeleton className="h-4 w-32" />
-                            <Skeleton className="h-4 w-28" />
-                            <Skeleton className="h-6 w-24" />
-                            <Skeleton className="h-8 w-8 ml-auto" />
+            <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex gap-3 p-3 rounded-xl border border-gray-100 bg-white">
+                        <Skeleton className="h-10 w-14 rounded-lg" />
+                        <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-3/4" />
+                            <Skeleton className="h-3 w-1/2" />
                         </div>
-                    ))}
-                </CardContent>
-            </Card>
+                    </div>
+                ))}
+            </div>
         );
     }
 
     if (!appointments || appointments.length === 0) {
         return (
-            <Card>
-                <CardContent className="py-12 text-center text-gray-500">
-                    <CalendarX className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                    <p className="text-lg font-medium text-gray-600">No hay citas programadas</p>
-                    <p className="text-sm">No se encontraron citas para los filtros seleccionados</p>
-                </CardContent>
-            </Card>
+            <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                <CalendarX className="h-10 w-10 mx-auto text-gray-300 mb-3" />
+                <p className="text-sm font-medium text-gray-700">Sin citas para este día</p>
+                <p className="text-xs text-gray-500 mt-1">Selecciona otro día en el calendario o agenda una nueva cita.</p>
+            </div>
         );
     }
 
     return (
         <>
-            <Card>
-                <CardContent className="pt-6">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-[80px]">Hora</TableHead>
-                                    <TableHead>Paciente</TableHead>
-                                    <TableHead>Doctor</TableHead>
-                                    <TableHead className="w-[140px]">Estado</TableHead>
-                                    <TableHead className="text-right w-[60px]">Acciones</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {appointments.map((appointment) => {
-                                    const appointmentDate = new Date(appointment.appointmentDate);
-                                    const time = format(appointmentDate, 'HH:mm');
-                                    const isPast = appointmentDate < new Date();
+            <div className="space-y-3">
+                {appointments.map((appointment) => {
+                    const date = new Date(appointment.appointmentDate);
+                    const overdue = isOverdue(appointment);
+                    const style = overdue ? OVERDUE_STYLE : (STATUS_STYLES[appointment.status] || DEFAULT_STYLE);
 
-                                    return (
-                                        <TableRow
-                                            key={appointment.id}
-                                            className={cn(
-                                                "hover:bg-gray-50 transition-colors",
-                                                isPast && appointment.status !== 'COMPLETED' && appointment.status !== 'CANCELLED' && "bg-gray-50/50"
-                                            )}
+                    return (
+                        <div
+                            key={appointment.id}
+                            onClick={() => onViewAppointment?.(appointment)}
+                            className={cn(
+                                "group relative w-full text-left flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-xl transition-all cursor-pointer border",
+                                style.bg,
+                                style.border,
+                                "hover:shadow-md"
+                            )}
+                        >
+                            <div className="flex items-center gap-3 w-full">
+                                {/* Bloque de Hora */}
+                                <div className={cn(
+                                    "flex-shrink-0 flex flex-col items-center justify-center min-w-[50px] border-r pr-3",
+                                    overdue ? "border-amber-200/60" : "border-gray-200/60"
+                                )}>
+                                    <span className={cn("text-sm font-bold tabular-nums", style.text)}>
+                                        {format(date, 'HH:mm')}
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 font-medium flex items-center gap-0.5">
+                                        <Clock className="h-2.5 w-2.5" />
+                                        {appointment.duration}m
+                                    </span>
+                                </div>
+
+                                {/* Información del Paciente */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm font-semibold text-gray-900 truncate">
+                                            {appointment.patient?.fullName || 'Paciente no disponible'}
+                                        </p>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500 truncate">
+                                        {appointment.doctor?.name && (
+                                            <span className="flex items-center gap-1 truncate">
+                                                <Stethoscope className="h-3 w-3 shrink-0" />
+                                                {appointment.doctor.name}
+                                            </span>
+                                        )}
+                                        {appointment.treatment?.name && (
+                                            <>
+                                                <span className="text-gray-300">·</span>
+                                                <span className="truncate">{appointment.treatment.name}</span>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {overdue && (
+                                        <div className="flex items-center gap-1 mt-1 text-[11px] font-medium text-amber-700 bg-amber-100/50 w-fit px-1.5 py-0.5 rounded-md">
+                                            <AlertCircle className="h-3 w-3 shrink-0" />
+                                            <span>Requiere confirmación</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Estado y Acciones Directas */}
+                                <div className="flex-shrink-0 flex items-center gap-2">
+                                    <Badge className={cn("hidden sm:inline-flex text-[10px] px-2 py-0.5 whitespace-nowrap", style.badgeBg, style.badgeText)}>
+                                        {overdue && <AlertCircle className="h-2.5 w-2.5 mr-1" />}
+                                        {style.label}
+                                    </Badge>
+
+                                    <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                        {onEditAppointment && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onEditAppointment(appointment);
+                                                }}
+                                                className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-100/50"
+                                                title="Editar cita"
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                            </Button>
+                                        )}
+
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedAppointment(appointment);
+                                                setShowDeleteDialog(true);
+                                            }}
+                                            className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-100/50"
+                                            title="Eliminar cita"
                                         >
-                                            <TableCell className="font-medium text-sm">
-                                                <div className="flex flex-col">
-                                                    <span>{time}</span>
-                                                    <span className="text-xs text-gray-400">
-                                                        {appointment.duration} min
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium text-gray-900">
-                                                        {appointment.patient?.fullName || 'Paciente no disponible'}
-                                                    </span>
-                                                    {appointment.patient?.phoneNumber && (
-                                                        <span className="text-xs text-gray-400">
-                                                            {appointment.patient.phoneNumber}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm">
-                                                        {appointment.doctor?.name || 'Doctor no disponible'}
-                                                    </span>
-                                                    {appointment.treatment && (
-                                                        <span className="text-xs text-gray-400">
-                                                            {appointment.treatment.name}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <StatusBadge status={appointment.status} />
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                                                        <DropdownMenuSeparator />
-                                                        {onViewAppointment && (
-                                                            <DropdownMenuItem onClick={() => onViewAppointment(appointment)}>
-                                                                <Eye className="h-4 w-4 mr-2" />
-                                                                Ver detalles
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                        {onEditAppointment && (
-                                                            <DropdownMenuItem onClick={() => onEditAppointment(appointment)}>
-                                                                <Edit className="h-4 w-4 mr-2" />
-                                                                Editar
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuLabel>Cambiar estado</DropdownMenuLabel>
-                                                        {statusOptions.map((option) => (
-                                                            <DropdownMenuItem
-                                                                key={option.value}
-                                                                onClick={() => handleStatusChange(appointment.id, option.value)}
-                                                                disabled={appointment.status === option.value}
-                                                                className={cn(
-                                                                    appointment.status === option.value && "text-gray-400"
-                                                                )}
-                                                            >
-                                                                <span className="mr-2">{option.icon}</span>
-                                                                {option.label}
-                                                            </DropdownMenuItem>
-                                                        ))}
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem
-                                                            onClick={() => {
-                                                                setSelectedAppointment(appointment);
-                                                                setShowDeleteDialog(true);
-                                                            }}
-                                                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                        >
-                                                            <Trash2 className="h-4 w-4 mr-2" />
-                                                            Eliminar
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
 
             {/* Dialog de confirmación de eliminación */}
             <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-                <DialogContent>
+                <DialogContent className="w-[calc(100vw-2rem)] max-w-md">
                     <DialogHeader>
-                        <DialogTitle>¿Eliminar cita?</DialogTitle>
-                        <DialogDescription>
-                            Esta acción no se puede deshacer. La cita será eliminada permanentemente.
-                            {selectedAppointment && (
-                                <div className="mt-2 p-3 bg-gray-50 rounded-lg text-sm">
-                                    <p><strong>Paciente:</strong> {selectedAppointment.patient?.fullName}</p>
-                                    <p><strong>Fecha:</strong> {format(new Date(selectedAppointment.appointmentDate), "dd/MM/yyyy HH:mm", { locale: es })}</p>
-                                </div>
-                            )}
-                        </DialogDescription>
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 bg-red-100 rounded-full shrink-0">
+                                <Trash2 className="h-5 w-5 text-red-600" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-base sm:text-lg font-bold">¿Eliminar esta cita?</DialogTitle>
+                                <DialogDescription className="text-xs sm:text-sm pt-1">
+                                    Esta acción no se puede deshacer. La cita será eliminada permanentemente del sistema.
+                                </DialogDescription>
+                            </div>
+                        </div>
                     </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+
+                    {selectedAppointment && (
+                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 text-sm mt-2">
+                            <p className="font-medium text-gray-900">{selectedAppointment.patient?.fullName}</p>
+                            <p className="text-gray-500 text-xs mt-0.5">
+                                {format(new Date(selectedAppointment.appointmentDate), "EEEE d 'de' MMMM, HH:mm", { locale: es })}
+                            </p>
+                        </div>
+                    )}
+
+                    <DialogFooter className="!flex-row justify-end gap-2 !space-x-0 pt-4">
+                        <Button variant="outline" onClick={() => setShowDeleteDialog(false)} className="flex-1 sm:flex-initial">
                             Cancelar
                         </Button>
-                        <Button variant="destructive" onClick={handleDelete}>
-                            Eliminar
+                        <Button variant="destructive" onClick={handleDelete} disabled={deleteAppointment.isPending} className="flex-1 sm:flex-initial">
+                            {deleteAppointment.isPending ? 'Eliminando...' : 'Sí, eliminar'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

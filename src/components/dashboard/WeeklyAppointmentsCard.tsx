@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import {
-    CalendarDays, Filter, Search,
+    CalendarDays, Filter, Search, AlertCircle
 } from 'lucide-react';
-import { format, isToday, isTomorrow } from 'date-fns';
+import { format, isToday, isTomorrow, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -37,6 +37,15 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string; label: string }>
     IN_PROGRESS: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'En curso' },
 };
 
+const OVERDUE_CONFIG = {
+    bg: 'bg-amber-50 hover:bg-amber-100',
+    border: 'border-l-4 border-amber-500',
+    text: 'text-amber-700',
+    badgeBg: 'bg-amber-100',
+    badgeText: 'text-amber-800',
+    label: 'Vencida',
+};
+
 const getImageUrl = (path?: string | null) => {
     if (!path) return '';
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
@@ -60,6 +69,13 @@ const getFullDayLabel = (dateStr: string): string => {
     if (isToday(date)) return 'Hoy';
     if (isTomorrow(date)) return 'Mañana';
     return format(date, "EEEE d 'de' MMMM", { locale: es });
+};
+
+const isOverdue = (appointment: WeeklyAppointment): boolean => {
+    const dateTimeString = `${appointment.date}T${appointment.time}:00`;
+    const isPastDate = isPast(new Date(dateTimeString));
+    const isTerminal = ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(appointment.status);
+    return isPastDate && !isTerminal;
 };
 
 export function WeeklyAppointmentsCard({
@@ -87,7 +103,6 @@ export function WeeklyAppointmentsCard({
         return Array.from(set).sort();
     }, [appointments]);
 
-    // Si hay búsqueda, ignora filtros de fecha/doctor (busca en todo)
     const filtered = useMemo(() => {
         const hasSearch = searchTerm.trim().length > 0;
 
@@ -233,7 +248,7 @@ export function WeeklyAppointmentsCard({
                 </div>
             </div>
 
-            {/* LISTA agrupada — sin scroll propio, el contenedor del tab scrollea */}
+            {/* LISTA agrupada */}
             <div className="px-4 md:px-6 py-4">
                 {grouped.length === 0 ? (
                     <div className="flex flex-col items-center justify-center text-center text-gray-400 py-16">
@@ -258,7 +273,6 @@ export function WeeklyAppointmentsCard({
                     <div className="space-y-4">
                         {grouped.map((group) => (
                             <div key={group.date}>
-                                {/* Day Header — sticky contra el contenedor del tab */}
                                 <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-sm -mx-1 px-1 pb-2 pt-1 flex items-center gap-2">
                                     <span className="text-[11px] md:text-xs font-bold text-gray-900 uppercase tracking-wider">
                                         {getDayLabel(group.date)}
@@ -277,11 +291,12 @@ export function WeeklyAppointmentsCard({
                                     </span>
                                 </div>
 
-                                {/* Items del día */}
                                 <div className="space-y-2 md:space-y-3">
                                     {group.items.map((appointment) => {
                                         const isTodayDate = appointment.date === todayStr;
                                         const photoUrl = getImageUrl(appointment.patientPhoto);
+
+                                        const overdue = isOverdue(appointment);
                                         const status = STATUS_CONFIG[appointment.status] || {
                                             bg: 'bg-gray-100',
                                             text: 'text-gray-700',
@@ -296,16 +311,18 @@ export function WeeklyAppointmentsCard({
                                                 className={cn(
                                                     'w-full text-left flex items-center gap-2 md:gap-4 p-2 md:p-3 rounded-xl transition-colors cursor-pointer',
                                                     'focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400',
-                                                    isTodayDate
-                                                        ? 'bg-blue-50 hover:bg-blue-100 border-l-4 border-blue-500'
-                                                        : 'bg-gray-50 hover:bg-gray-100',
+                                                    overdue
+                                                        ? `${OVERDUE_CONFIG.bg} ${OVERDUE_CONFIG.border}`
+                                                        : isTodayDate
+                                                            ? 'bg-blue-50 hover:bg-blue-100 border-l-4 border-blue-500'
+                                                            : 'bg-gray-50 hover:bg-gray-100',
                                                 )}
                                             >
                                                 <div className="flex-shrink-0 text-center min-w-[40px] md:min-w-[50px]">
                                                     <p
                                                         className={cn(
                                                             'text-xs sm:text-sm font-bold tabular-nums',
-                                                            isTodayDate ? 'text-blue-600' : 'text-gray-900',
+                                                            overdue ? OVERDUE_CONFIG.text : isTodayDate ? 'text-blue-600' : 'text-gray-900',
                                                         )}
                                                     >
                                                         {appointment.time}
@@ -348,18 +365,31 @@ export function WeeklyAppointmentsCard({
                                                             Dr. {appointment.doctorName}
                                                         </p>
                                                     )}
+
+                                                    {overdue && (
+                                                        <div className="flex items-center gap-1 mt-1 text-[10px] font-medium text-amber-700 bg-amber-100/50 w-fit px-1.5 py-0.5 rounded-md">
+                                                            <AlertCircle className="h-3 w-3 shrink-0" />
+                                                            <span>La hora de la cita ha vencido</span>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 <div className="flex-shrink-0 hidden sm:block">
-                                                    <span
-                                                        className={cn(
-                                                            'text-[10px] sm:text-xs px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full whitespace-nowrap',
-                                                            status.bg,
-                                                            status.text,
-                                                        )}
-                                                    >
-                                                        {status.label}
-                                                    </span>
+                                                    {overdue ? (
+                                                        <span className={cn('text-[10px] sm:text-xs px-2 py-1 rounded-full whitespace-nowrap font-medium', OVERDUE_CONFIG.badgeBg, OVERDUE_CONFIG.badgeText)}>
+                                                            {OVERDUE_CONFIG.label}
+                                                        </span>
+                                                    ) : (
+                                                        <span
+                                                            className={cn(
+                                                                'text-[10px] sm:text-xs px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full whitespace-nowrap',
+                                                                status.bg,
+                                                                status.text,
+                                                            )}
+                                                        >
+                                                            {status.label}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </button>
                                         );

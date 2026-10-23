@@ -1,10 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '@/hooks/useDashboard';
 import { format, startOfWeek, addDays } from 'date-fns';
-import { es } from 'date-fns/locale';
 import {
-  Clock, Loader2, Users, CalendarClock,
+  Loader2, Users, CalendarClock,
   ClipboardList, DollarSign, LayoutDashboard, TrendingUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { WeeklyAppointmentsCard } from '@/components/dashboard/WeeklyAppointmentsCard';
-import doctorImg from '@/assets/images/doctor.png';
+import { usePageHeader } from '@/contexts/PageHeaderContext';
 
 const getInitials = (name?: string) => {
   if (!name || !name.trim()) return '?';
@@ -66,7 +64,6 @@ const TREATMENT_STATUS_ORDER = ['COMPLETED', 'IN_PROGRESS', 'PLANNED', 'CANCELLE
 const APPOINTMENT_STATUS_ORDER = ['COMPLETED', 'CONFIRMED', 'SCHEDULED'];
 
 export const Dashboard = () => {
-  const { user, refreshUser } = useAuth();
   const { data, loading, error, refetch } = useDashboard();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -91,11 +88,6 @@ export const Dashboard = () => {
   );
 
   useEffect(() => {
-    refreshUser();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
     const now = new Date();
     const msToNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
     let intervalId: ReturnType<typeof setInterval>;
@@ -110,6 +102,11 @@ export const Dashboard = () => {
       if (intervalId) clearInterval(intervalId);
     };
   }, []);
+
+  usePageHeader(
+        'Home',
+        'Estadísticas y resumen de tus citas.'
+    );
 
   const handleAppointmentClick = async (appointmentId: number) => {
     try {
@@ -194,51 +191,8 @@ export const Dashboard = () => {
     if (fallback) fallback.classList.remove('hidden');
   };
 
-  const hasUserPhoto = !!(user?.photoUrl && user.photoUrl.trim() !== '');
-
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3 md:gap-4">
-          {hasUserPhoto ? (
-            <img
-              src={doctorImg}
-              alt="Avatar"
-              className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover shrink-0"
-              onError={handleImageError}
-            />
-          ) : null}
-          <div
-            className={`w-12 h-12 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center shrink-0 border-2 border-primary-100 ${hasUserPhoto ? 'hidden' : ''}`}
-          >
-            <span className="text-primary-700 font-bold text-base md:text-lg">
-              {getInitials(user?.name)}
-            </span>
-          </div>
-          <div>
-            <h1 className="text-xl md:text-2xl font-bold text-gray-900">
-              Bienvenido, <span className="text-primary-600">{user?.name || 'Doctor'}</span> 👋
-            </h1>
-            <p className="text-xs md:text-sm text-gray-500 mt-0.5 md:mt-1">
-              {format(new Date(), "EEEE d 'de' MMMM 'de' yyyy", { locale: es })}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 md:gap-3">
-          <div className="flex items-center gap-2 md:gap-3 text-xs md:text-sm text-gray-500 bg-white px-3 py-1.5 md:px-4 md:py-2 rounded-xl shadow-sm border border-gray-100">
-            <Clock className="h-3 w-3 md:h-4 md:w-4 text-primary-500" />
-            <span className="font-mono font-medium text-gray-700">
-              {currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-            <span className="w-px h-4 bg-gray-200 hidden sm:block" />
-            <span className="hidden sm:block">
-              {currentTime.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* STATS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <Link
