@@ -65,6 +65,17 @@ const statusConfig: Record<string, { label: string; className: string; icon: any
     CANCELLED: { label: 'Cancelado', className: 'bg-red-100 text-red-700', icon: XCircle },
 };
 
+const getCardBorderClass = (status: string) => {
+    switch (status) {
+        case 'PLANNED': return 'border-l-4 border-l-blue-500 bg-blue-50/10';
+        case 'IN_PROGRESS': return 'border-l-4 border-l-yellow-500 bg-yellow-50/10';
+        case 'ON_HOLD': return 'border-l-4 border-l-orange-500 bg-orange-50/10';
+        case 'COMPLETED': return 'border-l-4 border-l-green-500 bg-green-50/10';
+        case 'CANCELLED': return 'border-l-4 border-l-red-500 bg-red-50/20';
+        default: return 'border-l-4 border-l-gray-300';
+    }
+};
+
 const typeLabels: Record<string, string> = {
     DIAGNOSIS: 'Diagnóstico',
     PREVENTIVE: 'Preventivo',
@@ -91,8 +102,8 @@ function PatientAvatar({ photoUrl, fullName, size = 'sm' }: { photoUrl?: string 
     return (
         <div
             className={cn(
-                'rounded-full overflow-hidden bg-primary-100 text-primary-700',
-                'flex items-center justify-center font-bold shrink-0 border border-gray-200',
+                'rounded-full overflow-hidden bg-gradient-to-br from-teal-50 to-emerald-50 text-teal-700',
+                'flex items-center justify-center font-bold shrink-0 border border-teal-100',
                 sizeClass
             )}
         >
@@ -139,7 +150,10 @@ function TreatmentCard({
     return (
         <div
             onClick={() => onGoToDetail(treatment)}
-            className="bg-white rounded-xl border border-gray-100 p-4 transition-all hover:shadow-md active:scale-[0.99] cursor-pointer h-full flex flex-col"
+            className={cn(
+                "bg-white rounded-xl border border-gray-100 p-4 transition-all hover:shadow-md active:scale-[0.99] cursor-pointer h-full flex flex-col relative overflow-hidden",
+                getCardBorderClass(status)
+            )}
         >
             {/* Header: Nombre completo + Estado */}
             <div className="flex items-start justify-between gap-2">
@@ -167,7 +181,7 @@ function TreatmentCard({
 
             {/* Info secundaria */}
             <div className="mt-3 space-y-2 flex-1">
-                <Badge variant="outline" className="bg-gray-50 text-[10px] px-1.5 py-0">
+                <Badge variant="outline" className="bg-white/60 text-[10px] px-1.5 py-0">
                     {typeLabels[treatment.type] || treatment.type}
                 </Badge>
                 <div className="flex items-center gap-3 text-xs text-gray-600 flex-wrap">
@@ -201,14 +215,11 @@ function TreatmentCard({
             </div>
 
             {/* Acciones */}
-            <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-100">
+            <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-100/50">
                 <Button
                     variant="ghost"
                     size="icon"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onGoToDetail(treatment);
-                    }}
+                    onClick={(e) => { e.stopPropagation(); onGoToDetail(treatment); }}
                     className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-9 w-9"
                     title="Ver sesiones"
                 >
@@ -219,11 +230,8 @@ function TreatmentCard({
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(treatment);
-                        }}
-                        className="text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50 h-9 w-9"
+                        onClick={(e) => { e.stopPropagation(); onEdit(treatment); }}
+                        className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 h-9 w-9" // ⭐ Amber en lugar de Yellow
                         title="Editar"
                     >
                         <Pencil className="h-4 w-4" />
@@ -234,11 +242,8 @@ function TreatmentCard({
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onStart(treatment);
-                        }}
-                        className="text-green-600 hover:text-green-800 hover:bg-green-50 h-9 w-9"
+                        onClick={(e) => { e.stopPropagation(); onStart(treatment); }}
+                        className="text-teal-600 hover:text-teal-800 hover:bg-teal-50 h-9 w-9" // ⭐ Teal en lugar de Green
                         title="Iniciar tratamiento"
                     >
                         <Play className="h-4 w-4" />
@@ -249,10 +254,7 @@ function TreatmentCard({
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onCancel(treatment);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); onCancel(treatment); }}
                         className="text-red-600 hover:text-red-800 hover:bg-red-50 h-9 w-9"
                         title="Cancelar tratamiento"
                     >
@@ -416,7 +418,7 @@ export function TreatmentTable({
                 const status = treatment.status;
 
                 return (
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 justify-end">
                         <Button
                             variant="ghost"
                             size="icon"
@@ -438,7 +440,7 @@ export function TreatmentTable({
                                     e.stopPropagation();
                                     onEdit(treatment);
                                 }}
-                                className="text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50 h-8 w-8"
+                                className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 h-8 w-8" // ⭐ Amber
                                 title="Editar"
                             >
                                 <Pencil className="h-4 w-4" />
@@ -453,7 +455,7 @@ export function TreatmentTable({
                                     e.stopPropagation();
                                     onStart(treatment);
                                 }}
-                                className="text-green-600 hover:text-green-800 hover:bg-green-50 h-8 w-8"
+                                className="text-teal-600 hover:text-teal-800 hover:bg-teal-50 h-8 w-8" // ⭐ Teal
                                 title="Iniciar tratamiento"
                             >
                                 <Play className="h-4 w-4" />

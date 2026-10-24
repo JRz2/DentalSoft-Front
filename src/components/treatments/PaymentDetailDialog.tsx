@@ -14,13 +14,14 @@ interface Payment {
     amount: number | string;
     paymentMethod: string;
     paymentDate: string;
-    reference?: string;
-    notes?: string;
-    registeredBy?: string;
+    reference?: string | null;
+    notes?: string | null;
+    registeredBy: number | string;
+    user?: { name: string } | null;
     status?: string;
-    voidedAt?: string;
-    voidedBy?: number;
-    voidReason?: string;
+    voidedAt?: string | null;
+    voidedBy?: number | null;
+    voidReason?: string | null;
 }
 
 interface PaymentDetailDialogProps {
@@ -54,7 +55,7 @@ const toNumber = (v: unknown): number => {
     return 0;
 };
 
-const formatDate = (d?: string) => {
+const formatDate = (d?: string | null) => {
     if (!d) return '—';
     try {
         const date = new Date(d);
@@ -216,7 +217,7 @@ export function PaymentDetailDialog({ open, onOpenChange, payment }: PaymentDeta
                                     Registrado por
                                 </p>
                                 <p className="text-sm text-gray-800 mt-0.5">
-                                    {payment.registeredBy || '—'}
+                                    {payment.user?.name || payment.registeredBy || '—'}
                                 </p>
                             </div>
                         </div>

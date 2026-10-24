@@ -9,7 +9,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { treatmentService } from '@/services/treatment.service';
+import { useRegisterPayment } from '@/hooks/usePayments';
 import {
     Coins, CreditCard, AlertCircle, Loader2, CheckCircle2,
     Hash, FileText, Lock, Wallet,
@@ -53,11 +53,9 @@ const toNumber = (value: unknown): number => {
 };
 
 const generateIdempotencyKey = (): string => {
-    // crypto.randomUUID está disponible en todos los navegadores modernos y HTTPS
     if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
         return crypto.randomUUID();
     }
-    // Fallback por si acaso (navegadores antiguos)
     return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 };
 
@@ -74,16 +72,16 @@ export function RegisterPaymentModal({
     const safeTotalPaid = toNumber(totalPaid);
     const safeRemaining = toNumber(remainingBalance);
 
-    // Idempotency-Key: uno por cada apertura del modal.
-    // Mientras el modal esté abierto, todos los reintentos usan la MISMA key.
     const idempotencyKeyRef = useRef<string>(generateIdempotencyKey());
+
+    const registerPaymentMutation = useRegisterPayment();
 
     const {
         register,
         handleSubmit,
         watch,
         setValue,
-        formState: { errors, isSubmitting },
+        formState: { errors },
         reset,
     } = useForm<PaymentFormData>({
         resolver: zodResolver(paymentSchema),
@@ -100,7 +98,8 @@ export function RegisterPaymentModal({
     const showReferenceField = paymentMethod === 'TRANSFER';
     const isFullyPaid = safeRemaining <= 0.001;
 
-    // Al abrir: regenerar key + resetear formulario
+    const isSubmitting = registerPaymentMutation.isPending;
+
     useEffect(() => {
         if (open) {
             idempotencyKeyRef.current = generateIdempotencyKey();
@@ -120,9 +119,7 @@ export function RegisterPaymentModal({
         }
 
         if (data.amount > safeRemaining + 0.001) {
-            toast.error(
-                `El monto no puede exceder el saldo pendiente (Bs ${safeRemaining.toFixed(2)})`
-            );
+            toast.error(`El monto no puede exceder el saldo pendiente (Bs ${safeRemaining.toFixed(2)})`);
             return;
         }
 
@@ -132,16 +129,17 @@ export function RegisterPaymentModal({
         }
 
         try {
-            await treatmentService.registerPayment(
+            await registerPaymentMutation.mutateAsync({
                 treatmentId,
-                {
+                data: {
                     amount: Number(data.amount.toFixed(2)),
                     paymentMethod: data.paymentMethod,
                     reference: data.reference?.trim() || undefined,
                     notes: data.notes?.trim() || undefined,
                 },
-                idempotencyKeyRef.current,
-            );
+                idempotencyKey: idempotencyKeyRef.current,
+            });
+
             toast.success('Pago registrado correctamente');
             reset();
             onSuccess();
@@ -149,34 +147,25 @@ export function RegisterPaymentModal({
             const code = error.response?.data?.code;
             const message = error.response?.data?.message;
 
-            // Bug del front o doble submit con distinto payload:
-            // regeneramos la key y avisamos al usuario para que reintente.
             if (code === 'IDEMPOTENCY_KEY_REUSED') {
                 idempotencyKeyRef.current = generateIdempotencyKey();
-                toast.error(
-                    'Se detectó un intento duplicado con datos distintos. Reintentá el pago.',
-                );
+                toast.error('Se detectó un intento duplicado con datos distintos. Reintentá el pago.');
                 return;
             }
 
-            // Otro request con la misma key está en curso
             if (code === 'REQUEST_IN_PROGRESS') {
                 toast.warning('El pago ya está siendo procesado. Esperá unos segundos.');
                 return;
             }
 
-            // Tratamiento ya pagado (race con otro recepcionista)
             if (code === 'TREATMENT_ALREADY_PAID') {
                 toast.warning('El tratamiento ya fue pagado por otro usuario.');
                 onSuccess();
                 return;
             }
 
-            // Monto excede el saldo (race)
             if (code === 'AMOUNT_EXCEEDS_BALANCE') {
-                toast.error(
-                    message || 'El monto excede el saldo pendiente. Recargá la página.',
-                );
+                toast.error(message || 'El monto excede el saldo pendiente. Recargá la página.');
                 onSuccess();
                 return;
             }
@@ -188,15 +177,12 @@ export function RegisterPaymentModal({
 
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const rawValue = e.target.value;
-
         if (rawValue === '' || /^\d*\.?\d{0,2}$/.test(rawValue)) {
             const numValue = parseFloat(rawValue);
-
             if (isNaN(numValue) || numValue < 0) {
                 setValue('amount', 0, { shouldValidate: false });
                 return;
             }
-
             if (safeRemaining > 0 && numValue > safeRemaining) {
                 setValue('amount', safeRemaining, { shouldValidate: true });
                 toast.warning(`El monto no puede exceder Bs ${safeRemaining.toFixed(2)}`);
@@ -215,7 +201,6 @@ export function RegisterPaymentModal({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="w-full max-w-[95vw] sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-0 gap-0">
-                {/* Header con gradiente */}
                 <div className="bg-gradient-to-r from-primary-50 to-white border-b px-4 sm:px-6 py-4 rounded-t-2xl">
                     <DialogHeader>
                         <div className="flex items-start justify-between gap-3">
@@ -232,12 +217,8 @@ export function RegisterPaymentModal({
                                     </DialogDescription>
                                 </div>
                             </div>
-                            <Badge
-                                variant="outline"
-                                className="text-xs bg-blue-50 text-blue-700 border-blue-200 hidden sm:flex shrink-0"
-                            >
-                                <Wallet className="h-3 w-3 mr-1" />
-                                Nuevo pago
+                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 hidden sm:flex shrink-0">
+                                <Wallet className="h-3 w-3 mr-1" /> Nuevo pago
                             </Badge>
                         </div>
                     </DialogHeader>
@@ -249,46 +230,30 @@ export function RegisterPaymentModal({
                             <div className="flex items-start gap-2 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
                                 <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
                                 <p className="text-xs sm:text-sm text-emerald-700">
-                                    Este tratamiento está completamente pagado. No se pueden
-                                    registrar más pagos.
+                                    Este tratamiento está completamente pagado. No se pueden registrar más pagos.
                                 </p>
                             </div>
                         )}
 
-                        {/* Resumen financiero */}
                         <div className="bg-gray-50 rounded-lg p-3 sm:p-4 space-y-1.5 text-sm border border-gray-200">
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Costo total:</span>
-                                <span className="font-medium text-gray-900">
-                                    Bs {safeTotalCost.toFixed(2)}
-                                </span>
+                                <span className="font-medium text-gray-900">Bs {safeTotalCost.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-emerald-600">
                                 <span>Pagado:</span>
-                                <span className="font-medium">
-                                    Bs {safeTotalPaid.toFixed(2)}
-                                </span>
+                                <span className="font-medium">Bs {safeTotalPaid.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between font-semibold border-t border-gray-200 pt-1.5">
                                 <span>Saldo pendiente:</span>
-                                <span
-                                    className={cn(
-                                        safeRemaining > 0
-                                            ? 'text-amber-600'
-                                            : 'text-emerald-600'
-                                    )}
-                                >
+                                <span className={cn(safeRemaining > 0 ? 'text-amber-600' : 'text-emerald-600')}>
                                     Bs {Math.max(0, safeRemaining).toFixed(2)}
                                 </span>
                             </div>
                         </div>
 
-                        {/* Monto */}
                         <div className="space-y-2">
-                            <Label
-                                htmlFor="amount"
-                                className="flex items-center gap-2 text-sm font-medium text-gray-700"
-                            >
+                            <Label htmlFor="amount" className="flex items-center gap-2 text-sm font-medium text-gray-700">
                                 <Coins className="h-4 w-4 text-gray-400" />
                                 <span>Monto a pagar</span>
                                 <span className="text-red-500">*</span>
@@ -306,11 +271,8 @@ export function RegisterPaymentModal({
                                 placeholder="0.00"
                                 className={cn(
                                     'w-full',
-                                    errors.amount &&
-                                    'border-red-500 focus-visible:ring-red-500',
-                                    amount > safeRemaining &&
-                                    safeRemaining > 0 &&
-                                    'border-red-500 focus-visible:ring-red-500'
+                                    errors.amount && 'border-red-500 focus-visible:ring-red-500',
+                                    amount > safeRemaining && safeRemaining > 0 && 'border-red-500 focus-visible:ring-red-500'
                                 )}
                             />
                             {errors.amount && (
@@ -319,63 +281,40 @@ export function RegisterPaymentModal({
                                     <span>{errors.amount.message}</span>
                                 </div>
                             )}
-
                             {!isFullyPaid && safeRemaining > 0 && (
                                 <div className="flex flex-wrap justify-between gap-2 text-xs">
-                                    <span className="text-gray-500">
-                                        Máximo permitido: Bs {safeRemaining.toFixed(2)}
-                                    </span>
+                                    <span className="text-gray-500">Máximo permitido: Bs {safeRemaining.toFixed(2)}</span>
                                     {amount > 0 && amount <= safeRemaining && (
                                         <span className="text-emerald-600 flex items-center gap-1">
-                                            <CheckCircle2 className="h-3 w-3" />
-                                            Válido
+                                            <CheckCircle2 className="h-3 w-3" /> Válido
                                         </span>
                                     )}
                                     {amount > safeRemaining && (
                                         <span className="text-red-600 flex items-center gap-1">
-                                            <AlertCircle className="h-3 w-3" />
-                                            Excede el límite
+                                            <AlertCircle className="h-3 w-3" /> Excede el límite
                                         </span>
                                     )}
                                 </div>
                             )}
                         </div>
 
-                        {/* Método de pago */}
                         <div className="space-y-2">
-                            <Label
-                                htmlFor="paymentMethod"
-                                className="flex items-center gap-2 text-sm font-medium text-gray-700"
-                            >
+                            <Label htmlFor="paymentMethod" className="flex items-center gap-2 text-sm font-medium text-gray-700">
                                 <CreditCard className="h-4 w-4 text-gray-400" />
                                 <span>Método de pago</span>
                                 <span className="text-red-500">*</span>
                             </Label>
                             <Select
                                 disabled={isFullyPaid}
-                                onValueChange={(value) =>
-                                    setValue('paymentMethod', value as any, {
-                                        shouldValidate: true,
-                                    })
-                                }
+                                onValueChange={(value) => setValue('paymentMethod', value as any, { shouldValidate: true })}
                                 value={paymentMethod || 'CASH'}
                             >
-                                <SelectTrigger
-                                    className={cn(
-                                        'w-full',
-                                        errors.paymentMethod &&
-                                        'border-red-500 focus-visible:ring-red-500'
-                                    )}
-                                >
+                                <SelectTrigger className={cn('w-full', errors.paymentMethod && 'border-red-500 focus-visible:ring-red-500')}>
                                     <SelectValue placeholder="Seleccionar método" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="CASH">
-                                        {paymentMethodLabels.CASH}
-                                    </SelectItem>
-                                    <SelectItem value="TRANSFER">
-                                        {paymentMethodLabels.TRANSFER}
-                                    </SelectItem>
+                                    <SelectItem value="CASH">{paymentMethodLabels.CASH}</SelectItem>
+                                    <SelectItem value="TRANSFER">{paymentMethodLabels.TRANSFER}</SelectItem>
                                 </SelectContent>
                             </Select>
                             {errors.paymentMethod && (
@@ -386,13 +325,9 @@ export function RegisterPaymentModal({
                             )}
                         </div>
 
-                        {/* Referencia */}
                         {showReferenceField && (
                             <div className="space-y-2">
-                                <Label
-                                    htmlFor="reference"
-                                    className="flex items-center gap-2 text-sm font-medium text-gray-700"
-                                >
+                                <Label htmlFor="reference" className="flex items-center gap-2 text-sm font-medium text-gray-700">
                                     <Hash className="h-4 w-4 text-gray-400" />
                                     <span>Referencia (voucher, comprobante)</span>
                                     <span className="text-red-500">*</span>
@@ -402,11 +337,7 @@ export function RegisterPaymentModal({
                                     {...register('reference')}
                                     disabled={isFullyPaid}
                                     placeholder="Número de voucher o referencia"
-                                    className={cn(
-                                        'w-full',
-                                        errors.reference &&
-                                        'border-red-500 focus-visible:ring-red-500'
-                                    )}
+                                    className={cn('w-full', errors.reference && 'border-red-500 focus-visible:ring-red-500')}
                                 />
                                 {errors.reference && (
                                     <div className="flex items-center gap-1.5 mt-1.5 text-sm text-red-600">
@@ -417,17 +348,11 @@ export function RegisterPaymentModal({
                             </div>
                         )}
 
-                        {/* Notas */}
                         <div className="space-y-2">
-                            <Label
-                                htmlFor="notes"
-                                className="flex items-center gap-2 text-sm font-medium text-gray-700"
-                            >
+                            <Label htmlFor="notes" className="flex items-center gap-2 text-sm font-medium text-gray-700">
                                 <FileText className="h-4 w-4 text-gray-400" />
                                 <span>Notas</span>
-                                <span className="text-xs text-gray-400 font-normal">
-                                    (opcional)
-                                </span>
+                                <span className="text-xs text-gray-400 font-normal">(opcional)</span>
                             </Label>
                             <Textarea
                                 id="notes"
@@ -439,25 +364,14 @@ export function RegisterPaymentModal({
                             />
                         </div>
 
-                        {/* Botones */}
                         <div className="flex flex-row justify-end gap-3 pt-4 border-t">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => onOpenChange(false)}
-                                className="px-6"
-                            >
+                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="px-6">
                                 Cancelar
                             </Button>
                             <Button
                                 type="submit"
                                 disabled={isFullyPaid || isSubmitting}
                                 className="px-8 gap-2 bg-gradient-to-r from-emerald-600 to-green-700 hover:from-emerald-700 hover:to-green-800 text-white shadow-lg shadow-emerald-200/50 hover:shadow-emerald-300/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                                title={
-                                    isFullyPaid
-                                        ? 'El tratamiento ya está completamente pagado'
-                                        : undefined
-                                }
                             >
                                 {isSubmitting ? (
                                     <>

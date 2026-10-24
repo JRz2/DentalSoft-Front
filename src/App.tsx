@@ -14,6 +14,8 @@ import { ClinicsPage } from './pages/Clinics/ClinicsPage';
 import { TreatmentsPage } from './pages/Treatments/TreatmentsPage';
 import { AppointmentsPage } from './pages/Appointments/AppointmentsPage';
 import { PageHeaderProvider } from '@/contexts/PageHeaderContext';
+import { PaymentsPage } from './pages/Payments/PaymentsPage';
+import { ReportsPage } from './pages/Reports/ReportsPage';
 
 function AppRoutes() {
   useScrollToTop();
@@ -31,6 +33,8 @@ function AppRoutes() {
         <Route path="/users" element={<UsersPage />} />
         <Route path="/clinics" element={<ClinicsPage />} />
         <Route path="/appointments" element={<AppointmentsPage />} />
+        <Route path="/payments" element={<PaymentsPage />} />
+        <Route path="/reports" element={<ReportsPage />} />
       </Route>
     </Routes>
   );

@@ -25,22 +25,13 @@ interface PatientTableProps {
     };
 }
 
-// Función para obtener iniciales
 const getInitials = (name: string) => {
-    return name
-        .split(' ')
-        .map(word => word[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase();
+    return name.split(' ').map(word => word[0]).slice(0, 2).join('').toUpperCase();
 };
 
-// Función para obtener URL completa de la imagen
 const getImageUrl = (path: string) => {
     if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-        return path;
-    }
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
     if (path.startsWith('/')) {
         const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
@@ -49,7 +40,7 @@ const getImageUrl = (path: string) => {
     return path;
 };
 
-/* MOBILE CARD - Se muestra en pantallas < md */
+/* ═══════════ MOBILE CARD ═══════════ */
 interface MobileCardProps {
     patient: Patient;
     isAdmin: boolean;
@@ -76,23 +67,22 @@ function PatientMobileCard({
         <div
             onClick={() => onViewHistory(patient)}
             className={cn(
-                "bg-white rounded-xl border border-gray-100 p-4 transition-all",
-                "hover:shadow-md active:scale-[0.99] cursor-pointer",
-                isDeleted && "opacity-70"
+                "bg-white rounded-xl border border-gray-100 p-4 transition-all relative overflow-hidden",
+                "hover:shadow-md active:scale-[0.99] cursor-pointer flex flex-col h-full",
+                isDeleted ? "border-l-4 border-l-red-500 bg-red-50/20" : "border-l-4 border-l-green-500"
             )}
         >
             {/* Header: Foto + Info + Estado */}
             <div className="flex items-start gap-3">
-                {/* Foto */}
-                <div className="h-12 w-12 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 flex items-center justify-center">
+                {/* Foto / Iniciales con gradiente */}
+                <div className={cn(
+                    "h-12 w-12 rounded-full overflow-hidden border flex-shrink-0 flex items-center justify-center",
+                    isDeleted ? "border-red-100 bg-red-50" : "border-teal-100 bg-gradient-to-br from-teal-50 to-emerald-50"
+                )}>
                     {imageUrl ? (
-                        <img
-                            src={imageUrl}
-                            alt={patient.fullName}
-                            className="h-full w-full object-cover"
-                        />
+                        <img src={imageUrl} alt={patient.fullName} className="h-full w-full object-cover" />
                     ) : (
-                        <span className="text-xs font-medium text-primary-700">
+                        <span className={cn("text-xs font-bold", isDeleted ? "text-red-400" : "text-teal-700")}>
                             {getInitials(patient.fullName)}
                         </span>
                     )}
@@ -102,7 +92,10 @@ function PatientMobileCard({
                 <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                            <h3 className="font-semibold text-gray-900 text-sm truncate">
+                            <h3 className={cn(
+                                "font-semibold text-sm truncate",
+                                isDeleted ? "text-gray-500 line-through" : "text-gray-900"
+                            )}>
                                 {patient.fullName}
                             </h3>
                             {patient.medicalRecordNum && (
@@ -112,12 +105,12 @@ function PatientMobileCard({
                             )}
                         </div>
                         <Badge
-                            variant={isDeleted ? "destructive" : "outline"}
+                            variant="outline"
                             className={cn(
                                 "shrink-0 text-[10px] px-2 py-0.5",
                                 isDeleted
-                                    ? "bg-red-100 text-red-700"
-                                    : "bg-green-50 text-green-700 border-green-200"
+                                    ? "bg-red-100 text-red-700 border-red-200"
+                                    : "bg-green-100 text-green-700 border-green-200"
                             )}
                         >
                             {isDeleted ? 'Eliminado' : 'Activo'}
@@ -142,15 +135,12 @@ function PatientMobileCard({
                 </div>
             </div>
 
-            {/* Acciones */}
-            <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-gray-100">
+            {/* Acciones (alineadas al fondo) */}
+            <div className="flex items-center justify-end gap-1 mt-auto pt-3 border-t border-gray-100/50">
                 <Button
                     variant="ghost"
                     size="icon"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onViewHistory(patient);
-                    }}
+                    onClick={(e) => { e.stopPropagation(); onViewHistory(patient); }}
                     className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-9 w-9"
                     title="Ver historial"
                 >
@@ -159,39 +149,30 @@ function PatientMobileCard({
 
                 {!isDeleted && (
                     <>
+                        {onQuickAppointment && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => { e.stopPropagation(); onQuickAppointment(patient); }}
+                                className="text-teal-600 hover:text-teal-800 hover:bg-teal-50 h-9 w-9"
+                                title="Agendar cita"
+                            >
+                                <CalendarPlus className="h-4 w-4" />
+                            </Button>
+                        )}
                         <Button
                             variant="ghost"
                             size="icon"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onEdit(patient);
-                            }}
-                            className="text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50 h-9 w-9"
+                            onClick={(e) => { e.stopPropagation(); onEdit(patient); }}
+                            className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 h-9 w-9"
                             title="Editar"
                         >
                             <Pencil className="h-4 w-4" />
                         </Button>
-
                         <Button
                             variant="ghost"
                             size="icon"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onQuickAppointment?.(patient);
-                            }}
-                            className="text-primary-600 hover:text-primary-800 hover:bg-primary-50 h-9 w-9"
-                            title="Agendar cita"
-                        >
-                            <CalendarPlus className="h-4 w-4" />
-                        </Button>
-
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(patient);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); onDelete(patient); }}
                             className="text-red-600 hover:text-red-800 hover:bg-red-50 h-9 w-9"
                             title="Eliminar"
                         >
@@ -204,10 +185,7 @@ function PatientMobileCard({
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onRestore(patient);
-                        }}
+                        onClick={(e) => { e.stopPropagation(); onRestore(patient); }}
                         className="text-green-600 hover:text-green-800 hover:bg-green-50 h-9 w-9"
                         title="Restaurar paciente"
                     >
@@ -219,7 +197,7 @@ function PatientMobileCard({
     );
 }
 
-/* MAIN COMPONENT */
+/* ═══════════ MAIN COMPONENT ═══════════ */
 export function PatientTable({
     data,
     isLoading,
@@ -243,18 +221,18 @@ export function PatientTable({
             cell: ({ row }) => {
                 const photoUrl = row.getValue('photoUrl') as string;
                 const fullName = row.getValue('fullName') as string;
+                const isDeleted = !!row.original.deletedAt;
                 const fullImageUrl = photoUrl ? getImageUrl(photoUrl) : '';
 
                 return (
-                    <div className="h-14 w-14 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 flex items-center justify-center">
+                    <div className={cn(
+                        "h-14 w-14 rounded-full overflow-hidden border flex-shrink-0 flex items-center justify-center",
+                        isDeleted ? "border-gray-200 opacity-60" : "border-teal-100 bg-gradient-to-br from-teal-50 to-emerald-50"
+                    )}>
                         {fullImageUrl ? (
-                            <img
-                                src={fullImageUrl}
-                                alt={fullName}
-                                className="h-full w-full object-cover"
-                            />
+                            <img src={fullImageUrl} alt={fullName} className="h-full w-full object-cover" />
                         ) : (
-                            <span className="text-xs font-medium text-primary-700">
+                            <span className={cn("text-xs font-bold", isDeleted ? "text-gray-400" : "text-teal-700")}>
                                 {getInitials(fullName)}
                             </span>
                         )}
@@ -266,9 +244,14 @@ export function PatientTable({
             accessorKey: 'fullName',
             header: 'Nombre',
             size: 200,
-            cell: ({ row }) => (
-                <div className="font-medium text-gray-900">{row.getValue('fullName')}</div>
-            ),
+            cell: ({ row }) => {
+                const isDeleted = !!row.original.deletedAt;
+                return (
+                    <div className={cn("font-medium", isDeleted ? "text-gray-400 line-through" : "text-gray-900")}>
+                        {row.getValue('fullName')}
+                    </div>
+                );
+            },
         },
         {
             accessorKey: 'phoneNumber',
@@ -276,11 +259,9 @@ export function PatientTable({
             size: 150,
             cell: ({ row }) => {
                 const phone = row.getValue('phoneNumber') as string | undefined;
-                return phone ? (
-                    <div className="text-gray-600">{phone}</div>
-                ) : (
-                    <span className="text-gray-400 italic text-sm">Sin celular</span>
-                );
+                const isDeleted = !!row.original.deletedAt;
+                if (!phone) return <span className="text-gray-400 italic text-sm">Sin celular</span>;
+                return <div className={cn("text-gray-600", isDeleted && "text-gray-400")}>{phone}</div>;
             },
         },
         {
@@ -289,7 +270,8 @@ export function PatientTable({
             size: 120,
             cell: ({ row }) => {
                 const recordNum = row.getValue('medicalRecordNum') as string;
-                return <div className="text-gray-600 text-sm">{recordNum || '-'}</div>;
+                const isDeleted = !!row.original.deletedAt;
+                return <div className={cn("text-gray-600 text-sm", isDeleted && "text-gray-400")}>{recordNum || '-'}</div>;
             },
         },
         {
@@ -298,13 +280,17 @@ export function PatientTable({
             size: 100,
             cell: ({ row }) => {
                 const isDeleted = !!row.original.deletedAt;
-                return isDeleted ? (
-                    <Badge variant="destructive" className="bg-red-100 text-red-700">
-                        Eliminado
-                    </Badge>
-                ) : (
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                        Activo
+                return (
+                    <Badge
+                        variant="outline"
+                        className={cn(
+                            "rounded-md",
+                            isDeleted
+                                ? "bg-red-50 text-red-700 border-red-200"
+                                : "bg-green-50 text-green-700 border-green-200"
+                        )}
+                    >
+                        {isDeleted ? 'Eliminado' : 'Activo'}
                     </Badge>
                 );
             },
@@ -318,14 +304,11 @@ export function PatientTable({
                 const isDeleted = !!patient.deletedAt;
 
                 return (
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 justify-end">
                         <Button
                             variant="ghost"
                             size="icon"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onViewHistory(patient);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); onViewHistory(patient); }}
                             className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-8 w-8"
                             title="Ver historial"
                         >
@@ -334,11 +317,8 @@ export function PatientTable({
                         <Button
                             variant="ghost"
                             size="icon"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onEdit(patient);
-                            }}
-                            className="text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50 h-8 w-8"
+                            onClick={(e) => { e.stopPropagation(); onEdit(patient); }}
+                            className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 h-8 w-8"
                             title="Editar"
                         >
                             <Pencil className="h-4 w-4" />
@@ -346,11 +326,8 @@ export function PatientTable({
                         <Button
                             variant="ghost"
                             size="icon"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onQuickAppointment?.(patient);
-                            }}
-                            className="text-primary-600 hover:text-primary-800 h-8 w-8"
+                            onClick={(e) => { e.stopPropagation(); onQuickAppointment?.(patient); }}
+                            className="text-teal-600 hover:text-teal-800 hover:bg-teal-50 h-8 w-8"
                             title="Agendar cita"
                         >
                             <CalendarPlus className="h-4 w-4" />
@@ -359,10 +336,7 @@ export function PatientTable({
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onRestore(patient);
-                                }}
+                                onClick={(e) => { e.stopPropagation(); onRestore(patient); }}
                                 className="text-green-600 hover:text-green-800 hover:bg-green-50 h-8 w-8"
                                 title="Restaurar paciente"
                             >
@@ -373,10 +347,7 @@ export function PatientTable({
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onDelete(patient);
-                                }}
+                                onClick={(e) => { e.stopPropagation(); onDelete(patient); }}
                                 className="text-red-600 hover:text-red-800 hover:bg-red-50 h-8 w-8"
                                 title="Eliminar"
                             >
@@ -389,43 +360,35 @@ export function PatientTable({
         },
     ];
 
-    /* LOADING STATE (mobile + desktop) */
-    if (isLoading) {
-        if (isMobile) {
-            return (
-                <div className="space-y-3">
-                    {[1, 2, 3, 4].map((i) => (
-                        <div
-                            key={i}
-                            className="bg-white rounded-xl border border-gray-100 p-4 animate-pulse"
-                        >
-                            <div className="flex items-start gap-3">
-                                <div className="h-12 w-12 rounded-full bg-gray-200" />
-                                <div className="flex-1 space-y-2">
-                                    <div className="h-4 bg-gray-200 rounded w-3/4" />
-                                    <div className="h-3 bg-gray-100 rounded w-1/2" />
-                                </div>
+    /* LOADING STATE */
+    if (isLoading && isMobile) {
+        return (
+            <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="bg-white rounded-xl border border-gray-100 p-4 animate-pulse">
+                        <div className="flex items-start gap-3">
+                            <div className="h-12 w-12 rounded-full bg-gray-200" />
+                            <div className="flex-1 space-y-2">
+                                <div className="h-4 bg-gray-200 rounded w-3/4" />
+                                <div className="h-3 bg-gray-100 rounded w-1/2" />
                             </div>
                         </div>
-                    ))}
-                </div>
-            );
-        }
+                    </div>
+                ))}
+            </div>
+        );
     }
 
     /* EMPTY STATE */
-    if (!data.length && !isLoading) {
-        if (isMobile) {
-            return (
-                <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
-                    <p className="text-sm text-gray-500">No hay pacientes registrados</p>
-                </div>
-            );
-        }
+    if (!data.length && !isLoading && isMobile) {
+        return (
+            <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
+                <p className="text-sm text-gray-500">No hay pacientes registrados</p>
+            </div>
+        );
     }
 
-    /* RENDER */
-    // En móvil: cards
+    /* MOBILE RENDER */
     if (isMobile) {
         return (
             <div className="space-y-3">
@@ -442,7 +405,6 @@ export function PatientTable({
                     />
                 ))}
 
-                {/* Paginación en móvil (simple) */}
                 {pagination && pagination.totalPages > 1 && (
                     <div className="flex items-center justify-between bg-white rounded-xl border border-gray-100 p-3 mt-3">
                         <Button
@@ -470,7 +432,7 @@ export function PatientTable({
         );
     }
 
-    // En desktop: tabla normal
+    /* DESKTOP RENDER */
     return (
         <DataTableShadcn
             columns={columns}

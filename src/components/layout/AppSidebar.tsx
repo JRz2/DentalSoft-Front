@@ -1,7 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Calendar, FileText, Settings, LogOut, Activity,
-  Menu, UserCircle, Shield, X
+  Menu, UserCircle, Shield, X,
+  CreditCard
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMyClinic } from '@/hooks/useMyClinic';
@@ -16,6 +17,8 @@ const baseMenuItems = [
   { path: '/patients', icon: Users, label: 'Pacientes', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
   { path: '/treatments', icon: FileText, label: 'Tratamientos', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
   { path: '/appointments', icon: Calendar, label: 'Citas', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+  { path: '/payments', icon: CreditCard, label: 'Pagos', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
+  { path: '/reports', icon: CreditCard, label: 'Reportes', roles: ['ADMIN', 'DOCTOR', 'RECEPTIONIST'] },
   { path: '/settings', icon: Settings, label: 'Configuración', roles: ['ADMIN'] },
 ];
 
