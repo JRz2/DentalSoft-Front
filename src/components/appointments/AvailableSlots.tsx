@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,8 +22,7 @@ export function AvailableSlots({
     selectedSlot,
     isLoading: parentLoading,
 }: AvailableSlotsProps) {
-    const { data: slots, isLoading, error } = useAvailableSlots(doctorId, date);
-    const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
+    const { data: slots, isLoading, error } = useAvailableSlots(doctorId, date);;
 
     const isLoadingState = isLoading || parentLoading;
 
@@ -67,7 +65,6 @@ export function AvailableSlots({
     }
 
     const availableSlots = slots.filter(slot => slot.available);
-    const unavailableSlots = slots.filter(slot => !slot.available);
 
     return (
         <div className="space-y-4">
@@ -89,7 +86,6 @@ export function AvailableSlots({
                 {slots.map((slot) => {
                     const isAvailable = slot.available;
                     const isSelected = selectedSlot === slot.startTime;
-                    const isHovered = hoveredSlot === slot.startTime;
 
                     return (
                         <Button
@@ -98,8 +94,6 @@ export function AvailableSlots({
                             size="sm"
                             disabled={!isAvailable}
                             onClick={() => isAvailable && onSelectSlot(slot.startTime)}
-                            onMouseEnter={() => setHoveredSlot(slot.startTime)}
-                            onMouseLeave={() => setHoveredSlot(null)}
                             className={cn(
                                 "relative h-10 text-sm font-normal transition-all",
                                 isAvailable && "hover:border-primary-500 hover:bg-primary-50",

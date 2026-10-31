@@ -49,8 +49,6 @@ export const useChangePassword = () => {
 };
 
 export const useChangeUserPassword = () => {
-    const queryClient = useQueryClient();
-
     return useMutation({
         mutationFn: ({ userId, data }: { userId: number; data: AdminChangePasswordDto }) =>
             userService.changePasswordByAdmin(userId, data),
