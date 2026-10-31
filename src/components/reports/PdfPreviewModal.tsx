@@ -190,7 +190,7 @@ export function PdfPreviewModal({ open, onOpenChange, pdfBlob, fileName, title }
                                     loading={null}
                                     className="flex flex-col gap-4"
                                 >
-                                    {Array.from(new Array(numPages), (el, index) => (
+                                    {Array.from(new Array(numPages), (index) => (
                                         <Page
                                             key={`page_${index + 1}_${pageWidth}`} 
                                             pageNumber={index + 1}
