@@ -8,6 +8,7 @@ interface AuthContextType {
     login: (credentials: LoginDto) => Promise<void>;
     register: (userData: RegisterDto) => Promise<void>;
     logout: () => void;
+    refreshUser: () => Promise<void>;
     isAuthenticated: boolean;
 }
 
@@ -33,6 +34,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         setIsLoading(false);
     }, []);
+
+    //  Refrescar el user desde el back
+    const refreshUser = async () => {
+        try {
+            const response = await api.get('/users/profile');
+            const freshUser: User = response.data;
+            setUser(freshUser);
+            localStorage.setItem('user', JSON.stringify(freshUser));
+            console.log('🔄 Usuario refrescado:', freshUser.name, 'photoUrl:', freshUser.photoUrl);
+        } catch (error) {
+            console.error('❌ Error refrescando usuario:', error);
+        }
+    };
 
     const login = async (credentials: LoginDto) => {
         console.log('🔐 Intentando login con:', credentials.email);
@@ -93,6 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             login,
             register,
             logout,
+            refreshUser,
             isAuthenticated: !!user
         }}>
             {children}
