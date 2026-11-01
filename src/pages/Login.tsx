@@ -12,7 +12,8 @@ const clinicConfig = {
     address: 'Calle Principal #123',
     mobile: '+591 78945612',
     email: 'info@clinica.com',
-    logoUrl: 'http://localhost:3000/assets/logo-default.png',
+    //logoUrl: 'http://localhost:3000/assets/logo-default.png',
+    logoUrl: `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/assets/logo-default.png`,
 };
 
 export const Login = () => {
