@@ -6,19 +6,6 @@ import { toast } from 'sonner';
 import api from '@/services/api';
 import { Input } from '@/components/ui/input';
 
-const getImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-        return path;
-    }
-    if (path.startsWith('/')) {
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
-        return `${cleanBaseUrl}${path}`;
-    }
-    return `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/${path}`;
-};
-
 interface PatientImageUploadProps {
     onImageUploaded: (url: string) => void;
     currentImage?: string;
@@ -46,25 +33,35 @@ export function PatientImageUpload({
 
     const getInitials = (name?: string) => {
         if (!name) return 'Foto';
-        return name
-            .split(' ')
-            .map(word => word[0])
-            .slice(0, 2)
-            .join('')
-            .toUpperCase();
+        return name.split(' ').map(word => word[0]).slice(0, 2).join('').toUpperCase();
     };
 
-    // Cargar la imagen actual cuando cambia
+    // Cargar la imagen actual (pidiendo la URL firmada a Backblaze)
     useEffect(() => {
-        if (currentImage && currentImage !== '' && !isNewPatient) {
-            const fullUrl = getImageUrl(currentImage);
-            setPreview(fullUrl);
-            setImageError(false);
-        } else if (!currentImage || currentImage === '') {
-            if (preview && !preview.startsWith('blob:')) {
-                setPreview(null);
+        const fetchSignedUrl = async () => {
+            if (currentImage && currentImage !== '' && !isNewPatient) {
+                // Si currentImage ya es una URL completa (http), la usamos. 
+                // Si es un "key" de Backblaze, pedimos la URL firmada.
+                if (currentImage.startsWith('http')) {
+                    setPreview(currentImage);
+                } else {
+                    try {
+                        const { data } = await api.get(`/storage/view-url?key=${currentImage}`);
+                        setPreview(data.url);
+                    } catch (error) {
+                        console.error('Error obteniendo URL firmada:', error);
+                        setImageError(true);
+                    }
+                }
+                setImageError(false);
+            } else if (!currentImage || currentImage === '') {
+                if (preview && !preview.startsWith('blob:')) {
+                    setPreview(null);
+                }
             }
-        }
+        };
+
+        fetchSignedUrl();
     }, [currentImage, isNewPatient]);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,7 +82,7 @@ export function PatientImageUpload({
         setPreview(localPreview);
         setImageError(false);
 
-        // Si es un paciente nuevo, no subir al servidor todavía
+        // Si es un paciente nuevo, no subir a B2 todavía
         if (isNewPatient) {
             if (onFileSelected) {
                 onFileSelected(file);
@@ -94,36 +91,48 @@ export function PatientImageUpload({
             return;
         }
 
-        // Para edición: subir inmediatamente
         if (!patientId) {
             toast.error('Error: No se encontró el ID del paciente');
             return;
         }
 
         setIsUploading(true);
-        const formData = new FormData();
-        formData.append('file', file);
 
         try {
-            const url = `/patient/${patientId}/photo`;
-            const response = await api.post(url, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
+            // 1. Pedir URL prefirmada al backend
+            const { data } = await api.post('/storage/upload-url', {
+                folder: `pacientes/${patientId}`,
+                contentType: file.type,
             });
 
-            const serverUrl = response.data.fileUrl;
-            setPreview(getImageUrl(serverUrl));
-            setImageError(false);
-            onImageUploaded(serverUrl);
+            // 2. Subir la imagen directamente a Backblaze B2
+            const uploadResponse = await fetch(data.uploadUrl, {
+                method: 'PUT',
+                body: file,
+                headers: { 'Content-Type': file.type },
+            });
 
-            if (onPhotoUploaded) {
-                onPhotoUploaded();
-            }
+            if (!uploadResponse.ok) throw new Error('Error al subir a Backblaze');
 
+            // 3. Guardar el "key" en la base de datos del paciente
+            await api.patch(`/patient/${patientId}`, { photoUrl: data.key });
+
+            setPreview(localPreview);
+            onImageUploaded(data.key); // Pasamos el key, no la URL completa
+
+            if (onPhotoUploaded) onPhotoUploaded();
             toast.success('Foto actualizada exitosamente');
+
         } catch (error: any) {
             console.error('Error al subir foto:', error);
             toast.error(error.response?.data?.message || 'Error al subir la foto');
-            setPreview(currentImage ? getImageUrl(currentImage) : null);
+            // Si falla, intentamos restaurar la vista previa anterior
+            if (currentImage) {
+                const { data } = await api.get(`/storage/view-url?key=${currentImage}`);
+                setPreview(data.url);
+            } else {
+                setPreview(null);
+            }
         } finally {
             setIsUploading(false);
         }
@@ -137,15 +146,14 @@ export function PatientImageUpload({
         setImageError(false);
         onImageUploaded('');
 
-        // Si es un paciente existente, eliminar del servidor
+        // Si es un paciente existente, quitamos la foto en la base de datos
         if (!isNewPatient && patientId) {
             try {
                 setIsUploading(true);
-                await api.delete(`/patient/${patientId}/photo`);
+                // Actualizamos el paciente con photoUrl nulo o vacío
+                await api.patch(`/patient/${patientId}`, { photoUrl: null });
                 toast.success('Foto eliminada correctamente');
-                if (onPhotoUploaded) {
-                    onPhotoUploaded();
-                }
+                if (onPhotoUploaded) onPhotoUploaded();
             } catch (error: any) {
                 console.error('Error al eliminar foto:', error);
                 toast.error(error.response?.data?.message || 'Error al eliminar la foto');
@@ -154,13 +162,10 @@ export function PatientImageUpload({
             }
         }
 
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     const handleImageError = () => {
-        console.error('Error al cargar imagen:', preview);
         setImageError(true);
     };
 
@@ -170,13 +175,11 @@ export function PatientImageUpload({
         <div className="space-y-3">
             <Label className="text-sm font-medium text-gray-700">Foto del paciente</Label>
 
-            {/* Avatar con overlay */}
             <div
                 className="relative w-32 h-32 mx-auto"
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
-                {/* Avatar circular */}
                 <div className="w-32 h-32 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden flex items-center justify-center border-4 border-primary-100 shadow-lg">
                     {showPreview ? (
                         <img
@@ -193,7 +196,6 @@ export function PatientImageUpload({
                     )}
                 </div>
 
-                {/* Overlay al hacer hover */}
                 {isHovered && !isUploading && (
                     <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center transition-opacity">
                         <div className="flex gap-3">
@@ -221,14 +223,12 @@ export function PatientImageUpload({
                     </div>
                 )}
 
-                {/* Spinner de carga */}
                 {isUploading && (
                     <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
                         <Loader2 className="h-8 w-8 text-white animate-spin" />
                     </div>
                 )}
 
-                {/* Input oculto */}
                 <Input
                     ref={fileInputRef}
                     type="file"
@@ -238,7 +238,6 @@ export function PatientImageUpload({
                 />
             </div>
 
-            {/* Texto de ayuda */}
             <p className="text-xs text-gray-400 text-center">
                 {showPreview ? (
                     <span>Pasa el mouse para cambiar o eliminar la foto</span>
