@@ -9,7 +9,7 @@ import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { PrivateImage } from '@/components/shared/PrivateImage';
 
 interface TreatmentTableProps {
     data: Treatment[];
@@ -30,14 +30,6 @@ interface TreatmentTableProps {
 // ============================================================
 // HELPERS
 // ============================================================
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
-    if (path.startsWith('/')) return `${cleanBaseUrl}${path}`;
-    return `${cleanBaseUrl}/${path}`;
-};
 
 const getInitials = (name: string) => {
     return name
@@ -93,10 +85,6 @@ const typeLabels: Record<string, string> = {
    AVATAR DEL PACIENTE
    ============================================================ */
 function PatientAvatar({ photoUrl, fullName, size = 'sm' }: { photoUrl?: string | null; fullName: string; size?: 'sm' | 'md' }) {
-    const [imageError, setImageError] = useState(false);
-    const url = getImageUrl(photoUrl);
-    const hasPhoto = !!url && !imageError;
-
     const sizeClass = size === 'md' ? 'h-8 w-8 text-xs' : 'h-6 w-6 text-[10px]';
 
     return (
@@ -107,12 +95,11 @@ function PatientAvatar({ photoUrl, fullName, size = 'sm' }: { photoUrl?: string 
                 sizeClass
             )}
         >
-            {hasPhoto ? (
-                <img
-                    src={url}
+            {photoUrl && photoUrl.trim() !== '' ? (
+                <PrivateImage
+                    imageKey={photoUrl}
                     alt={fullName}
                     className="h-full w-full object-cover"
-                    onError={() => setImageError(true)}
                 />
             ) : (
                 <span>{getInitials(fullName)}</span>

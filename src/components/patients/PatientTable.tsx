@@ -7,6 +7,7 @@ import { Patient } from '@/types/patient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
+import { PrivateImage } from '@/components/shared/PrivateImage';
 
 interface PatientTableProps {
     data: Patient[];
@@ -27,17 +28,6 @@ interface PatientTableProps {
 
 const getInitials = (name: string) => {
     return name.split(' ').map(word => word[0]).slice(0, 2).join('').toUpperCase();
-};
-
-const getImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    if (path.startsWith('/')) {
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
-        return `${cleanBaseUrl}${path}`;
-    }
-    return path;
 };
 
 /* ═══════════ MOBILE CARD ═══════════ */
@@ -61,7 +51,6 @@ function PatientMobileCard({
     onQuickAppointment,
 }: MobileCardProps) {
     const isDeleted = !!patient.deletedAt;
-    const imageUrl = patient.photoUrl ? getImageUrl(patient.photoUrl) : '';
 
     return (
         <div
@@ -79,8 +68,8 @@ function PatientMobileCard({
                     "h-12 w-12 rounded-full overflow-hidden border flex-shrink-0 flex items-center justify-center",
                     isDeleted ? "border-red-100 bg-red-50" : "border-teal-100 bg-gradient-to-br from-teal-50 to-emerald-50"
                 )}>
-                    {imageUrl ? (
-                        <img src={imageUrl} alt={patient.fullName} className="h-full w-full object-cover" />
+                    {patient.photoUrl ? (
+                        <PrivateImage imageKey={patient.photoUrl} alt={patient.fullName} className="h-full w-full object-cover" />
                     ) : (
                         <span className={cn("text-xs font-bold", isDeleted ? "text-red-400" : "text-teal-700")}>
                             {getInitials(patient.fullName)}
@@ -222,15 +211,14 @@ export function PatientTable({
                 const photoUrl = row.getValue('photoUrl') as string;
                 const fullName = row.getValue('fullName') as string;
                 const isDeleted = !!row.original.deletedAt;
-                const fullImageUrl = photoUrl ? getImageUrl(photoUrl) : '';
 
                 return (
                     <div className={cn(
                         "h-14 w-14 rounded-full overflow-hidden border flex-shrink-0 flex items-center justify-center",
                         isDeleted ? "border-gray-200 opacity-60" : "border-teal-100 bg-gradient-to-br from-teal-50 to-emerald-50"
                     )}>
-                        {fullImageUrl ? (
-                            <img src={fullImageUrl} alt={fullName} className="h-full w-full object-cover" />
+                        {photoUrl ? (
+                            <PrivateImage imageKey={photoUrl} alt={fullName} className="h-full w-full object-cover" />
                         ) : (
                             <span className={cn("text-xs font-bold", isDeleted ? "text-gray-400" : "text-teal-700")}>
                                 {getInitials(fullName)}

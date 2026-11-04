@@ -6,6 +6,7 @@ import { format, isToday, isTomorrow, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { PrivateImage } from '../shared/PrivateImage';
 
 interface WeeklyAppointment {
     id: number;
@@ -46,15 +47,6 @@ const OVERDUE_CONFIG = {
     label: 'Vencida',
 };
 
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
-    if (path.startsWith('/')) return `${cleanBaseUrl}${path}`;
-    return `${cleanBaseUrl}/${path}`;
-};
-
 const getDayLabel = (dateStr: string): string => {
     const [y, m, d] = dateStr.split('-').map(Number);
     const date = new Date(y, m - 1, d);
@@ -81,7 +73,6 @@ const isOverdue = (appointment: WeeklyAppointment): boolean => {
 export function WeeklyAppointmentsCard({
     appointments,
     onAppointmentClick,
-    onImageError,
     getInitials,
 }: WeeklyAppointmentsCardProps) {
     const [dateFilter, setDateFilter] = useState<DateFilter>('today');
@@ -294,8 +285,6 @@ export function WeeklyAppointmentsCard({
                                 <div className="space-y-2 md:space-y-3">
                                     {group.items.map((appointment) => {
                                         const isTodayDate = appointment.date === todayStr;
-                                        const photoUrl = getImageUrl(appointment.patientPhoto);
-
                                         const overdue = isOverdue(appointment);
                                         const status = STATUS_CONFIG[appointment.status] || {
                                             bg: 'bg-gray-100',
@@ -331,26 +320,23 @@ export function WeeklyAppointmentsCard({
                                                         {appointment.duration} min
                                                     </p>
                                                 </div>
-
+                                                
                                                 <div className="flex-shrink-0">
-                                                    {photoUrl ? (
-                                                        <img
-                                                            src={photoUrl}
+                                                    {appointment.patientPhoto ? (
+                                                        <PrivateImage
+                                                            imageKey={appointment.patientPhoto}
                                                             alt={appointment.patientName}
                                                             className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-full object-cover border-2 border-white shadow-sm"
-                                                            onError={onImageError}
                                                         />
-                                                    ) : null}
-                                                    <div
-                                                        className={cn(
-                                                            'h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center border-2 border-white shadow-sm',
-                                                            photoUrl && 'fallback-avatar hidden',
-                                                        )}
-                                                    >
-                                                        <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-primary-700">
-                                                            {getInitials(appointment.patientName)}
-                                                        </span>
-                                                    </div>
+                                                    ) : (
+                                                        <div
+                                                            className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 rounded-full bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center border-2 border-white shadow-sm"
+                                                        >
+                                                            <span className="text-[10px] sm:text-xs md:text-sm font-semibold text-primary-700">
+                                                                {getInitials(appointment.patientName)}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 <div className="flex-1 min-w-0">

@@ -18,13 +18,14 @@ import { StartTreatmentDialog } from '@/components/treatments/StartTreatmentDial
 import { CompleteTreatmentDialog } from '@/components/treatments/CompleteTreatmentDialog';
 import { cn } from '@/lib/utils';
 import { usePageHeader } from '@/contexts/PageHeaderContext';
-import { typeLabels, statusColors, statusLabels, getInitials, getImageUrl } from '@/lib/treatmentUtils';
+import { typeLabels, statusColors, statusLabels, getInitials } from '@/lib/treatmentUtils';
 import { TreatmentSessionsTab } from '@/components/treatments/tabs/TreatmentSessionsTab';
 import { TreatmentAppointmentsTab } from '@/components/treatments/tabs/TreatmentAppointmentsTab';
 import { TreatmentImagesTab } from '@/components/treatments/tabs/TreatmentImagesTab';
 import { TreatmentPaymentsTab } from '@/components/treatments/tabs/TreatmentPaymentsTab';
 import { TreatmentMobileFAB } from '@/components/treatments/TreatmentMobileFAB';
 import { useTreatmentSessions } from '@/hooks/useTreatmentSessions';
+import { PrivateImage } from '@/components/shared/PrivateImage';
 
 export function TreatmentSessionsPage() {
     const { treatmentId, patientId } = useParams<{ treatmentId: string; patientId: string }>();
@@ -89,13 +90,10 @@ export function TreatmentSessionsPage() {
                         >
                             <div className="h-20 w-20 md:h-24 md:w-24 rounded-full border-4 border-primary-100 group-hover:border-primary-300 overflow-hidden bg-gray-50 flex items-center justify-center transition-colors">
                                 {patient?.photoUrl && patient.photoUrl.trim() !== '' ? (
-                                    <img
-                                        src={getImageUrl(patient.photoUrl)}
+                                    <PrivateImage
+                                        imageKey={patient.photoUrl}
                                         alt={patient.fullName}
                                         className="h-full w-full object-cover"
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = 'none';
-                                        }}
                                     />
                                 ) : null}
                                 <span

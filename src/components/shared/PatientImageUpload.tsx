@@ -99,40 +99,47 @@ export function PatientImageUpload({
         setIsUploading(true);
 
         try {
-            // 1. Pedir URL prefirmada al backend
             const { data } = await api.post('/storage/upload-url', {
                 folder: `pacientes/${patientId}`,
                 contentType: file.type,
             });
 
-            // 2. Subir la imagen directamente a Backblaze B2
-            const uploadResponse = await fetch(data.uploadUrl, {
-                method: 'PUT',
-                body: file,
-                headers: { 'Content-Type': file.type },
-            });
+            if (data.mode === 'local') {
+                // MODO LOCAL
+                const formData = new FormData();
+                formData.append('file', file);
+                // Hacemos la subida clásica a tu backend
+                const response = await api.post(`/patient/${patientId}/photo`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
 
-            if (!uploadResponse.ok) throw new Error('Error al subir a Backblaze');
+                // El backend viejo nos devuelve { fileUrl: '/uploads/...' }
+                const savedUrl = response.data.fileUrl;
 
-            // 3. Guardar el "key" en la base de datos del paciente
-            await api.patch(`/patient/${patientId}`, { photoUrl: data.key });
+                // Actualizamos la base de datos con esa URL
+                await api.patch(`/patient/${patientId}`, { photoUrl: savedUrl });
+                onImageUploaded(savedUrl);
+            } else {
+                // MODO B2 (Backblaze)
+                const uploadResponse = await fetch(data.uploadUrl, {
+                    method: 'PUT',
+                    body: file,
+                    headers: { 'Content-Type': file.type },
+                });
+                if (!uploadResponse.ok) throw new Error('Error al subir a Backblaze');
 
-            setPreview(localPreview);
-            onImageUploaded(data.key); // Pasamos el key, no la URL completa
+                // Actualizamos la base de datos con el key de B2
+                await api.patch(`/patient/${patientId}`, { photoUrl: data.key });
+                onImageUploaded(data.key);
+            }
 
-            if (onPhotoUploaded) onPhotoUploaded();
             toast.success('Foto actualizada exitosamente');
+            if (onPhotoUploaded) onPhotoUploaded();
 
         } catch (error: any) {
             console.error('Error al subir foto:', error);
             toast.error(error.response?.data?.message || 'Error al subir la foto');
-            // Si falla, intentamos restaurar la vista previa anterior
-            if (currentImage) {
-                const { data } = await api.get(`/storage/view-url?key=${currentImage}`);
-                setPreview(data.url);
-            } else {
-                setPreview(null);
-            }
+            setPreview(currentImage || null); 
         } finally {
             setIsUploading(false);
         }

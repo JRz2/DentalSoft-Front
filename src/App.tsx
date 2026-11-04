@@ -16,15 +16,35 @@ import { AppointmentsPage } from './pages/Appointments/AppointmentsPage';
 import { PageHeaderProvider } from '@/contexts/PageHeaderContext';
 import { PaymentsPage } from './pages/Payments/PaymentsPage';
 import { ReportsPage } from './pages/Reports/ReportsPage';
+import { RoleRoute } from './components/auth/RoleRoute';
+import { useAuth } from './contexts/AuthContext';
+
+function HomeRedirect() {
+  const { user } = useAuth();
+  if (user?.role === 'SUPER_ADMIN') return <Navigate to="/clinics" replace />;
+  return <Navigate to="/dashboard" replace />;
+}
 
 function AppRoutes() {
   useScrollToTop();
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+      <Route path="/" element={<HomeRedirect />} />
+
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-        <Route path="/dashboard" element={<Dashboard />} />
+
+        <Route
+          path="/dashboard"
+          element={
+            <RoleRoute allowedRoles={['ADMIN', 'DOCTOR', 'RECEPTIONIST']}>
+              <Dashboard />
+            </RoleRoute>
+
+          }
+        />
+
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/patients" element={<PatientsList />} />
         <Route path="/treatments" element={<TreatmentsPage />} />
@@ -36,7 +56,7 @@ function AppRoutes() {
         <Route path="/payments" element={<PaymentsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
       </Route>
-    </Routes>
+    </Routes >
   );
 }
 function App() {

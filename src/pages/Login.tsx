@@ -30,8 +30,12 @@ export const Login = () => {
         setError('');
         setIsLoading(true);
         try {
-            await login({ email, password });
-            navigate('/dashboard');
+            const loggedUser = await login({ email, password });
+            if (loggedUser && loggedUser.role === 'SUPER_ADMIN') {
+                navigate('/clinics');
+            } else {
+                navigate('/dashboard');
+            }
         } catch (err: any) {
             setError(err.response?.data?.message || 'Error al iniciar sesión');
         } finally {

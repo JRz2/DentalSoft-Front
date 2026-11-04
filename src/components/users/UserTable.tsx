@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTableShadcn } from '@/components/shared/DataTableShadcn';
 import { User } from '@/types/user';
+import { PrivateImage } from '@/components/shared/PrivateImage';
 
 interface UserTableProps {
     data: User[];
@@ -39,20 +40,6 @@ const getInitials = (name: string) => {
         .toUpperCase();
 };
 
-// Función para obtener URL completa de la imagen
-const getImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-        return path;
-    }
-    if (path.startsWith('/')) {
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
-        return `${cleanBaseUrl}${path}`;
-    }
-    return path;
-};
-
 export function UserTable({
     data,
     isLoading,
@@ -71,16 +58,11 @@ export function UserTable({
             cell: ({ row }) => {
                 const photoUrl = row.getValue('photoUrl') as string;
                 const fullName = row.getValue('name') as string;
-                const fullImageUrl = photoUrl ? getImageUrl(photoUrl) : '';
 
                 return (
                     <div className="h-14 w-14 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 flex items-center justify-center">
-                        {fullImageUrl ? (
-                            <img
-                                src={fullImageUrl}
-                                alt={fullName}
-                                className="h-full w-full object-cover"
-                            />
+                        {photoUrl ? (
+                            <PrivateImage imageKey={photoUrl} alt={fullName} className="h-full w-full object-cover" />
                         ) : (
                             <span className="text-xs font-medium text-primary-700">
                                 {getInitials(fullName)}

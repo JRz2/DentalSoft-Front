@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePageHeaderContext } from '../../contexts/PageHeaderContext';
@@ -13,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { PrivateImage } from '@/components/shared/PrivateImage';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -28,15 +28,6 @@ const getInitials = (name?: string) => {
     .slice(0, 2)
     .join('')
     .toUpperCase();
-};
-
-const getImageUrl = (path?: string | null) => {
-  if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-  const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
-  if (path.startsWith('/')) return `${cleanBaseUrl}${path}`;
-  return `${cleanBaseUrl}/${path}`;
 };
 
 const roleLabels: Record<string, string> = {
@@ -58,7 +49,6 @@ function UserAvatar({
   name?: string;
   size?: 'sm' | 'md' | 'lg';
 }) {
-  const [imageError, setImageError] = useState(false);
 
   const sizeClass =
     size === 'lg'
@@ -66,9 +56,6 @@ function UserAvatar({
       : size === 'md'
         ? 'h-9 w-9 text-xs'
         : 'h-8 w-8 text-[10px]';
-
-  const url = getImageUrl(photoUrl);
-  const hasPhoto = !!url && !imageError;
 
   return (
     <div
@@ -79,13 +66,8 @@ function UserAvatar({
         'flex items-center justify-center',
       )}
     >
-      {hasPhoto ? (
-        <img
-          src={url}
-          alt={name || 'Usuario'}
-          className="h-full w-full object-cover"
-          onError={() => setImageError(true)}
-        />
+      {photoUrl ? (
+        <PrivateImage imageKey={photoUrl} alt={name || 'Usuario'} className="h-full w-full object-cover" />
       ) : name ? (
         <span className={cn('font-bold text-teal-700', size === 'lg' ? 'text-sm' : 'text-xs')}>
           {getInitials(name)}

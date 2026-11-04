@@ -5,6 +5,7 @@ import { format, isToday, isTomorrow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { PrivateImage } from '../shared/PrivateImage';
 
 interface NextAppointment {
     id: number;
@@ -35,15 +36,6 @@ const getInitials = (name?: string) => {
         .slice(0, 2)
         .join('')
         .toUpperCase();
-};
-
-const getImageUrl = (path?: string | null) => {
-    if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
-    if (path.startsWith('/')) return `${cleanBaseUrl}${path}`;
-    return `${cleanBaseUrl}/${path}`;
 };
 
 const parseAppointmentDate = (date: string, time: string): Date | null => {
@@ -187,14 +179,12 @@ function PatientAvatar({
     status,
     size = 'md',
 }: {
-    photoUrl?: string | null;
+    photoUrl?: string | null | undefined;
     fullName: string;
     status: string;
     size?: 'sm' | 'md';
 }) {
-    const url = getImageUrl(photoUrl);
-    const hasPhoto = !!url;
-
+    const hasPhoto = !!photoUrl && photoUrl.trim() !== '';
     const sizeClass = size === 'md' ? 'h-11 w-11' : 'h-8 w-8';
     const textClass = size === 'md' ? 'text-xs' : 'text-[10px]';
     const ringClass = size === 'md' ? 'ring-2' : 'ring-1';
@@ -206,19 +196,14 @@ function PatientAvatar({
     return (
         <div className="relative shrink-0">
             {hasPhoto ? (
-                <img
-                    src={url}
+                <PrivateImage
+                    imageKey={photoUrl}
                     alt={fullName}
                     className={cn(
                         sizeClass,
                         'rounded-full object-cover ring-white shadow-sm',
                         ringClass,
                     )}
-                    onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        const sibling = e.currentTarget.nextElementSibling as HTMLElement | null;
-                        if (sibling) sibling.classList.remove('hidden');
-                    }}
                 />
             ) : null}
             <div

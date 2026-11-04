@@ -45,19 +45,6 @@ export const getInitials = (name: string) => {
         .toUpperCase();
 };
 
-export const getImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-        return path;
-    }
-    if (path.startsWith('/')) {
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
-        return `${cleanBaseUrl}${path}`;
-    }
-    return path;
-};
-
 export const toNumber = (value: unknown): number => {
     if (typeof value === 'number') return isNaN(value) ? 0 : value;
     if (typeof value === 'string') {

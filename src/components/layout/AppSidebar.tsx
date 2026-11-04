@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useMyClinic } from '@/hooks/useMyClinic';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { PrivateImage } from '@/components/shared/PrivateImage';
 
 const baseMenuItems = [
   { path: '/clinics', icon: Activity, label: 'Clinicas', roles: ['SUPER_ADMIN'] },
@@ -28,15 +29,6 @@ interface AppSidebarProps {
   isMobile?: boolean;
 }
 
-const getImageUrl = (path?: string | null) => {
-  if (!path) return '';
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-  const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
-  if (path.startsWith('/')) return `${cleanBaseUrl}${path}`;
-  return `${cleanBaseUrl}/${path}`;
-};
-
 export function AppSidebar({ isOpen, onToggle, isMobile = false }: AppSidebarProps) {
   const location = useLocation();
   const { logout, user } = useAuth();
@@ -49,7 +41,7 @@ export function AppSidebar({ isOpen, onToggle, isMobile = false }: AppSidebarPro
   const showLabel = isMobile || isOpen;
 
   const clinicName = clinic?.name?.trim() || 'DentalClinic';
-  const logoUrl = getImageUrl(clinic?.logoUrl);
+  const logoKey = clinic?.logoUrl; // 👈 Guardamos el key directamente
 
   const handleNavClick = () => {
     if (isMobile && isOpen) onToggle();
@@ -70,26 +62,19 @@ export function AppSidebar({ isOpen, onToggle, isMobile = false }: AppSidebarPro
       {/* Logo + nombre */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-teal-800/50">
         <div className="flex items-center gap-2 overflow-hidden min-w-0">
-          {logoUrl ? (
-            <img
-              src={logoUrl}
+          
+          {/* 👇 AQUÍ USAMOS PRIVATEIMAGE CON EL FALLBACK */}
+          {logoKey ? (
+            <PrivateImage
+              imageKey={logoKey}
               alt={clinicName}
               className="w-9 h-9 rounded-lg object-cover shrink-0 ring-2 ring-teal-500/30"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                const sibling = e.currentTarget.nextElementSibling as HTMLElement | null;
-                if (sibling) sibling.classList.remove('hidden');
-              }}
             />
-          ) : null}
-          <div
-            className={cn(
-              'w-9 h-9 rounded-lg bg-teal-500/20 flex items-center justify-center shrink-0',
-              logoUrl && 'hidden',
-            )}
-          >
-            <Activity className="w-5 h-5 text-teal-400" />
-          </div>
+          ) : (
+            <div className="w-9 h-9 rounded-lg bg-teal-500/20 flex items-center justify-center shrink-0">
+              <Activity className="w-5 h-5 text-teal-400" />
+            </div>
+          )}
 
           {showLabel && (
             <span className="text-base font-bold whitespace-nowrap truncate">

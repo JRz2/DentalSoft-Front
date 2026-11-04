@@ -28,6 +28,7 @@ import { useScrollDirection } from '@/hooks/useScrollDirection';
 import { cn } from '@/lib/utils';
 import { PatientAppointmentsCard } from '@/components/clinical/PatientAppointmentsCard'; 'lucide-react';
 import { usePageHeader } from '@/contexts/PageHeaderContext';
+import { PrivateImage } from '@/components/shared/PrivateImage';
 
 // Opciones para filtros
 const statusOptions = [
@@ -193,19 +194,6 @@ export function ClinicalHistoryPage() {
             .toUpperCase();
     };
 
-    const getImageUrl = (path: string) => {
-        if (!path) return '';
-        if (path.startsWith('http://') || path.startsWith('https://')) {
-            return path;
-        }
-        if (path.startsWith('/')) {
-            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-            const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
-            return `${cleanBaseUrl}${path}`;
-        }
-        return path;
-    };
-
     if (patientLoading || historyLoading) {
         return (
             <div className="space-y-6">
@@ -235,11 +223,10 @@ export function ClinicalHistoryPage() {
                         {/* Avatar */}
                         <div className="h-16 w-16 md:h-20 md:w-20 rounded-full border-4 border-primary-100 overflow-hidden bg-gray-50 flex items-center justify-center shrink-0">
                             {patient.photoUrl && patient.photoUrl.trim() !== '' ? (
-                                <img
-                                    src={getImageUrl(patient.photoUrl)}
+                                <PrivateImage
+                                    imageKey={patient.photoUrl}
                                     alt={patient.fullName}
                                     className="h-full w-full object-cover"
-                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
                                 />
                             ) : (
                                 <span className="text-gray-700 text-lg md:text-xl font-semibold">

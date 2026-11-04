@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -16,17 +15,7 @@ import { toast } from 'sonner';
 import api from '@/services/api';
 import { cn } from '@/lib/utils';
 import { usePageHeader } from '@/contexts/PageHeaderContext';
-
-const getImageUrl = (path: string) => {
-    if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    if (path.startsWith('/')) {
-        const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
-        return `${cleanBaseUrl}${path}`;
-    }
-    return path;
-};
+import { PrivateImage } from '@/components/shared/PrivateImage';
 
 const roleLabels: Record<string, string> = {
     ADMIN: 'Administrador',
@@ -83,11 +72,26 @@ export function ProfilePage() {
         if (file.size > 5 * 1024 * 1024) return toast.error('La imagen no puede superar los 5MB');
 
         setIsUploading(true);
-        const formData = new FormData();
-        formData.append('file', file);
-
         try {
-            await api.post('/uploads/user/photo', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const { data } = await api.post('/storage/upload-url', {
+                folder: `usuarios/${profile?.id || user?.id}`,
+                contentType: file.type,
+            });
+
+            if (data.mode === 'local') {
+                const formData = new FormData();
+                formData.append('file', file);
+                await api.post('/uploads/user/photo', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            } else {
+                const response = await fetch(data.uploadUrl, {
+                    method: 'PUT',
+                    body: file,
+                    headers: { 'Content-Type': file.type },
+                });
+                if (!response.ok) throw new Error('Error a B2');
+                await api.patch(`/users/${profile?.id || user?.id}`, { photoUrl: data.key });
+            }
+
             toast.success('Foto de perfil actualizada exitosamente');
             refetch();
         } catch (error) {
@@ -127,7 +131,7 @@ export function ProfilePage() {
     };
 
     const passwordsMatch = passwordForm.newPassword.length >= 6 && passwordForm.newPassword === passwordForm.confirmPassword;
-    
+
     // Validaciones visuales para el panel derecho
     const hasMinLength = passwordForm.newPassword.length >= 6;
     const hasNumber = /\d/.test(passwordForm.newPassword);
@@ -151,24 +155,26 @@ export function ProfilePage() {
             <div className="bg-white rounded-2xl shadow-sm ring-1 ring-gray-200/60 p-6 sm:p-8 relative overflow-hidden">
                 {/* Fondo decorativo con gradiente y patrón */}
                 <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-teal-50/80 to-transparent" />
-                
+
                 <div className="relative flex flex-col sm:flex-row items-center sm:items-end gap-5 -mb-2">
                     {/* Avatar */}
                     <div className="relative shrink-0">
-                        <div
-                            className="cursor-pointer group"
-                            onClick={() => fileInputRef.current?.click()}
-                        >
-                            <Avatar className="h-28 w-28 md:h-32 md:w-32 border-4 border-white shadow-lg ring-1 ring-gray-100 transition-opacity group-hover:opacity-90">
-                                {profile?.photoUrl && (
-                                    <AvatarImage src={getImageUrl(profile.photoUrl)} className="object-cover" />
+                        <div className="cursor-pointer group" onClick={() => fileInputRef.current?.click()}>
+                            <div className="h-28 w-28 md:h-32 md:w-32 rounded-full border-4 border-white shadow-lg ring-1 ring-gray-100 overflow-hidden bg-teal-100 flex items-center justify-center relative">
+                                {profile?.photoUrl ? (
+                                    <PrivateImage
+                                        imageKey={profile.photoUrl}
+                                        alt={profile.name || 'Perfil'}
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : (
+                                    <span className="text-teal-700 text-3xl font-bold">
+                                        {getInitials(profile?.name || user?.name || 'U')}
+                                    </span>
                                 )}
-                                <AvatarFallback className="bg-teal-100 text-teal-700 text-3xl font-bold">
-                                    {getInitials(profile?.name || user?.name || 'U')}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                {isUploading ? <Loader2 className="h-8 w-8 text-white animate-spin" /> : <Camera className="h-8 w-8 text-white" />}
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {isUploading ? <Loader2 className="h-8 w-8 text-white animate-spin" /> : <Camera className="h-8 w-8 text-white" />}
+                                </div>
                             </div>
                         </div>
                         <button
@@ -344,7 +350,7 @@ export function ProfilePage() {
                 <TabsContent value="security" className="mt-0">
                     <Card className="border-0 shadow-sm ring-1 ring-gray-200/60 overflow-hidden">
                         <div className="grid grid-cols-1 lg:grid-cols-12">
-                            
+
                             {/* Columna Izquierda: Formulario (Ocupa 7/12) */}
                             <div className="lg:col-span-7 p-6 sm:p-8">
                                 <div className="mb-6">
@@ -354,7 +360,7 @@ export function ProfilePage() {
                                     </h3>
                                     <p className="text-sm text-gray-500 mt-1">Asegúrate de usar una contraseña larga y segura.</p>
                                 </div>
-                                
+
                                 <form onSubmit={handlePasswordSubmit} className="space-y-5">
                                     <div className="space-y-2">
                                         <Label className="text-sm font-medium text-gray-700">Contraseña actual</Label>
@@ -437,7 +443,7 @@ export function ProfilePage() {
                                         </div>
                                         <h4 className="font-semibold text-gray-900 text-sm">Requisitos de seguridad</h4>
                                     </div>
-                                    
+
                                     <ul className="space-y-3 text-sm">
                                         <li className="flex items-center gap-2">
                                             <CheckCircle2 className={cn("h-4 w-4", hasMinLength ? "text-green-500" : "text-gray-300")} />

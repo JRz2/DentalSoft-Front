@@ -17,6 +17,7 @@ import { Appointment, AppointmentStatus } from '@/types/appointment';
 import { useUpdateAppointmentStatus } from '@/hooks/useAppointments';
 import { cn } from '@/lib/utils';
 import { AppointmentStatusConfirmDialog, AppointmentActionType } from '@/components/appointments/AppointmentStatusConfirmDialog';
+import { PrivateImage } from '../shared/PrivateImage';
 
 interface AppointmentDetailDialogProps {
     open: boolean;
@@ -128,19 +129,6 @@ const getInitials = (name?: string): string => {
         .toUpperCase();
 };
 
-const getImageUrl = (path?: string) => {
-    if (!path) return '';
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-        return path;
-    }
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    const cleanBaseUrl = baseUrl.replace(/\/api$/, '');
-    if (path.startsWith('/')) {
-        return `${cleanBaseUrl}${path}`;
-    }
-    return `${cleanBaseUrl}/${path}`;
-};
-
 /* ============================================================
    INFO ROW
    ============================================================ */
@@ -184,12 +172,11 @@ interface PatientAvatarProps {
 }
 
 function PatientAvatar({ photoUrl, fullName, size = 'sm' }: PatientAvatarProps) {
-    const [imageError, setImageError] = useState(false);
     const sizeClasses =
         size === 'lg' ? 'h-14 w-14 text-base'
             : size === 'md' ? 'h-10 w-10 text-xs'
                 : 'h-8 w-8 text-[10px]';
-    const hasPhoto = photoUrl && photoUrl.trim() !== '' && !imageError;
+    const hasPhoto = photoUrl && photoUrl.trim() !== '';
 
     return (
         <div
@@ -200,11 +187,10 @@ function PatientAvatar({ photoUrl, fullName, size = 'sm' }: PatientAvatarProps) 
             )}
         >
             {hasPhoto ? (
-                <img
-                    src={getImageUrl(photoUrl)}
+                <PrivateImage
+                    imageKey={photoUrl}
                     alt={fullName || 'Paciente'}
                     className="h-full w-full object-cover"
-                    onError={() => setImageError(true)}
                 />
             ) : (
                 <span>{getInitials(fullName)}</span>

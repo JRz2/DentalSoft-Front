@@ -5,7 +5,7 @@ import api from "../services/api";
 interface AuthContextType {
     user: User | null;
     isLoading: boolean;
-    login: (credentials: LoginDto) => Promise<void>;
+    login: (credentials: LoginDto) => Promise<User | void>;
     register: (userData: RegisterDto) => Promise<void>;
     logout: () => void;
     refreshUser: () => Promise<void>;
@@ -71,6 +71,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 setUser(user);
                 console.log('✅ Login exitoso');
+
+                return user;
             } else {
                 console.error('❌ Respuesta sin token o usuario');
                 throw new Error('Respuesta inválida del servidor');
