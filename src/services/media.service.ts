@@ -40,23 +40,48 @@ export const mediaService = {
         return response.data;
     },
 
-    // Subir una imagen
     upload: async (file: File, data: CreateMediaDto): Promise<Media> => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('treatmentId', data.treatmentId.toString());
-        if (data.sessionId) formData.append('sessionId', data.sessionId.toString());
-        formData.append('mediaType', data.mediaType);
-        if (data.category) formData.append('category', data.category);
-        if (data.title) formData.append('title', data.title);
-        if (data.description) formData.append('description', data.description);
-
-        const response = await api.post('/media/upload', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
+        // 1. Pedir URL prefirmada
+        const { data: uploadData } = await api.post('/storage/upload-url', {
+            folder: `media/${data.treatmentId}`,
+            contentType: file.type,
         });
-        return response.data;
+
+        if (uploadData.mode === 'local') {
+            // MODO LOCAL: Subimos con FormData clásico
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('treatmentId', data.treatmentId.toString());
+            if (data.sessionId) formData.append('sessionId', data.sessionId.toString());
+            formData.append('mediaType', data.mediaType);
+            if (data.category) formData.append('category', data.category);
+            if (data.title) formData.append('title', data.title);
+            if (data.description) formData.append('description', data.description);
+
+            const response = await api.post('/media/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            return response.data;
+        } else {
+            // MODO B2: Subimos directo a Backblaze con PUT
+            const uploadResponse = await fetch(uploadData.uploadUrl, {
+                method: 'PUT',
+                body: file,
+                headers: { 'Content-Type': file.type },
+            });
+            if (!uploadResponse.ok) throw new Error('Error al subir a Backblaze');
+
+            // 2. Guardamos la información en la Base de Datos
+            // (Enviamos el key de B2 en lugar del archivo físico)
+            const response = await api.post('/media', {
+                ...data,
+                filePath: uploadData.key,
+                fileName: file.name,
+                fileSize: file.size,
+                mimeType: file.type,
+            });
+            return response.data;
+        }
     },
 
     // Eliminar imagen
