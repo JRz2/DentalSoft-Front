@@ -24,7 +24,7 @@ export function PdfPreviewModal({ open, onOpenChange, pdfBlob, fileName, title }
     const [error, setError] = useState(false);
     const [fullscreen, setFullscreen] = useState(false);
     const [numPages, setNumPages] = useState<number>(1);
-    
+
     const [containerWidth, setContainerWidth] = useState<number>(0);
     const [zoom, setZoom] = useState<number>(1);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -102,14 +102,16 @@ export function PdfPreviewModal({ open, onOpenChange, pdfBlob, fileName, title }
         onOpenChange(nextOpen);
     };
 
-    // 🔥 Lógica del tamaño final de la hoja
     const baseWidth = containerWidth > 0 ? Math.min(containerWidth, 750) : 0;
-    const pageWidth = baseWidth * zoom;
+    const rawPageWidth = baseWidth * zoom;
+    const pageWidth = Number.isFinite(rawPageWidth) && rawPageWidth > 0 ? rawPageWidth : 750;
+
+    const safeNumPages = Number.isFinite(numPages) && numPages > 0 ? numPages : 1;
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
             <Description className="text-sm text-muted-foreground">
-                Previsualización de PDF
+                Previsualización de PDF
             </Description>
             <DialogContent
                 showCloseButton={false}
@@ -173,26 +175,24 @@ export function PdfPreviewModal({ open, onOpenChange, pdfBlob, fileName, title }
                     </div>
                 </header>
 
-                {/* VISOR DEL DOCUMENTO (CORREGIDO PARA SCROLL) */}
+                {/* VISOR DEL DOCUMENTO */}
                 <main className="relative min-h-0 min-w-0 overflow-auto bg-slate-200/60 dark:bg-slate-900/50 p-4">
-                    
-                    {/* El contenedor Ref mide el ancho disponible (sin scroll horizontal) */}
                     <div ref={containerRef} className="w-full flex flex-col">
-                        
-                        {/* 🔥 AQUÍ ESTÁ EL TRUCO: w-max min-w-full mx-auto permite el scroll a la izquierda */}
                         <div className="w-max min-w-full mx-auto flex flex-col items-center gap-4 pb-4">
-                            
                             {pdfUrl && !error && containerWidth > 0 ? (
                                 <Document
                                     file={pdfUrl}
-                                    onLoadSuccess={({ numPages }) => { setNumPages(numPages); setLoading(false); }}
+                                    onLoadSuccess={({ numPages: loadedPages }) => {
+                                        setNumPages(Number.isFinite(loadedPages) && loadedPages > 0 ? loadedPages : 1);
+                                        setLoading(false);
+                                    }}
                                     onLoadError={() => { setLoading(false); setError(true); }}
                                     loading={null}
                                     className="flex flex-col gap-4"
                                 >
-                                    {Array.from(new Array(numPages), (index) => (
+                                    {Array.from({ length: safeNumPages }, (_, index) => (
                                         <Page
-                                            key={`page_${index + 1}_${pageWidth}`} 
+                                            key={`page_${index + 1}_${Math.round(pageWidth)}`}
                                             pageNumber={index + 1}
                                             renderTextLayer={false}
                                             renderAnnotationLayer={false}
@@ -244,7 +244,7 @@ export function PdfPreviewModal({ open, onOpenChange, pdfBlob, fileName, title }
                         <p className="truncate text-xs text-muted-foreground">Documento PDF Oficial</p>
                     </div>
                     <p className="shrink-0 text-xs text-muted-foreground">
-                        {numPages} {numPages === 1 ? 'Página' : 'Páginas'}
+                        {safeNumPages} {safeNumPages === 1 ? 'Página' : 'Páginas'}
                     </p>
                 </footer>
             </DialogContent>

@@ -40,12 +40,33 @@ const getInitials = (name?: string) => {
 
 const parseAppointmentDate = (date: string, time: string): Date | null => {
     try {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+        // 🔍 LOG 1: valores crudos que llegan al parser
+        console.log('[parseAppointmentDate] INPUT', { date, time });
+
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            console.warn('[parseAppointmentDate] date inválido:', date);
+            return null;
+        }
         const [y, m, d] = date.split('-').map(Number);
         const [h, min] = time.split(':').map(Number);
+
+        // 🔍 LOG 2: valores numéricos extraídos
+        console.log('[parseAppointmentDate] SPLIT', { y, m, d, h, min });
+
         const result = new Date(y, m - 1, d, h || 0, min || 0);
+
+        // 🔍 LOG 3: Date resultante + zona horaria
+        console.log('[parseAppointmentDate] RESULT', {
+            iso: result.toISOString(),
+            local: result.toString(),
+            horas: result.getHours(),
+            minutos: result.getMinutes(),
+            tzOffsetMin: result.getTimezoneOffset(),
+        });
+
         return isNaN(result.getTime()) ? null : result;
-    } catch {
+    } catch (e) {
+        console.error('[parseAppointmentDate] EXCEPTION', e);
         return null;
     }
 };
@@ -272,6 +293,15 @@ export function NextAppointmentCard({
 }: NextAppointmentCardProps) {
     const navigate = useNavigate();
 
+    // 🔍 LOG 0: datos completos que llegan al componente
+    console.log('[NextAppointmentCard] PROPS', {
+        count: nextAppointments?.length,
+        currentTimeISO: currentTime?.toISOString(),
+        first: nextAppointments?.[0],
+        second: nextAppointments?.[1],
+        tzOffsetMin: new Date().getTimezoneOffset(),
+    });
+
     /* ---------- Estado vacío ---------- */
     if (!nextAppointments || nextAppointments.length === 0) {
         return (
@@ -323,7 +353,13 @@ export function NextAppointmentCard({
     const secondary = rest[0] || null;
 
     const primaryDate = parseAppointmentDate(primary.date, primary.time);
-    if (!primaryDate) return null;
+    if (!primaryDate) {
+        console.error(
+            '[NextAppointmentCard] primaryDate es null — no se puede renderizar',
+            { date: primary.date, time: primary.time }
+        );
+        return null;
+    }
 
     const primaryTotalMin = Math.floor(
         (primaryDate.getTime() - currentTime.getTime()) / 60000,
@@ -331,6 +367,16 @@ export function NextAppointmentCard({
     const cfg = URGENCY_CONFIG[getUrgency(primaryTotalMin)];
     const countdown = getCountdown(primaryDate, primaryTotalMin);
     const subtitle = getSubtitle(primaryDate);
+
+    // 🔍 LOG 4: valores finales antes de pintar el hero
+    console.log('[NextAppointmentCard] HERO', {
+        primaryTimeRaw: primary.time,
+        primaryDateLocal: primaryDate.toString(),
+        primaryDateISO: primaryDate.toISOString(),
+        horaMostrada: format(primaryDate, 'HH:mm'),   // 👈 lo que DEBERÍA mostrarse
+        horaCruda: primary.time,                       // 👈 lo que SE ESTÁ mostrando
+        primaryTotalMin,
+    });
 
     /* ---------- Datos de la siguiente ---------- */
     let secondaryDate: Date | null = null;
@@ -417,7 +463,8 @@ export function NextAppointmentCard({
                                 cfg.timeColor,
                             )}
                         >
-                            {primary.time}
+                            {/* 👇 CAMBIA ESTO: en vez de primary.time, formatea desde primaryDate */}
+                            {format(primaryDate, 'HH:mm')}
                         </span>
 
                         <div className="flex flex-col items-end shrink-0 pb-0.5">
@@ -516,7 +563,8 @@ export function NextAppointmentCard({
                                         secondaryCfg.countdownColor,
                                     )}
                                 >
-                                    {secondary.time}
+                                    {/* 👇 CAMBIA ESTO: igual que arriba */}
+                                    {format(secondaryDate, 'HH:mm')}
                                 </span>
                                 <span className="text-[9px] text-gray-400 mt-0.5 capitalize">
                                     {isToday(secondaryDate)
